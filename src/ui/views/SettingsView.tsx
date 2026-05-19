@@ -12,6 +12,9 @@ interface Props {
   testAuth: (providerId: ProviderId, pat: string) => Promise<Result<true>>
   listBoards: (providerId: ProviderId, pat: string) => Promise<Result<Board[]>>
   onSave: (payload: { providerId: ProviderId; pat: string; config: FileConfig }) => void
+  // Present only when a previous config exists, so users can back out of editing
+  // settings without losing their existing config.
+  onCancel?: () => void
 }
 
 /**
@@ -43,6 +46,7 @@ export function SettingsView({
   testAuth,
   listBoards,
   onSave,
+  onCancel,
 }: Props) {
   const [providerId, setProviderId] = useState<ProviderId | null>(initialProviderId)
   const [pat, setPat] = useState(initialPat)
@@ -183,9 +187,12 @@ export function SettingsView({
             </p>
           )}
 
-          <Button variant="primary" disabled={!canSave} onClick={onClickSave}>
-            Save
-          </Button>
+          <div className="row">
+            <Button variant="primary" disabled={!canSave} onClick={onClickSave}>
+              Save
+            </Button>
+            {onCancel && <Button onClick={onCancel}>Cancel</Button>}
+          </div>
         </div>
       )}
     </div>

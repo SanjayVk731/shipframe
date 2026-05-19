@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { Button } from '../components/Button'
+import { ViewHeader } from '../components/ViewHeader'
 import type { TicketLink } from '../../shared/types'
 
 interface Props {
@@ -7,17 +8,18 @@ interface Props {
   onOpen: (url: string) => void
   onFocus: () => void
   onUnlink: () => void
+  onOpenSettings: () => void
 }
 
 function providerLabel(id: TicketLink['providerId']): string {
   return id === 'notion' ? 'Notion' : 'Azure DevOps'
 }
 
-export function LinkedView({ link, onOpen, onFocus, onUnlink }: Props) {
+export function LinkedView({ link, onOpen, onFocus, onUnlink, onOpenSettings }: Props) {
   const [confirming, setConfirming] = useState(false)
   return (
     <div>
-      <h2>Linked</h2>
+      <ViewHeader title="Linked" onOpenSettings={onOpenSettings} />
       <p>
         Ticket <strong>{link.id}</strong> on {providerLabel(link.providerId)}
       </p>

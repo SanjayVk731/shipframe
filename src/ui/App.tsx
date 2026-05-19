@@ -3,6 +3,7 @@ import { useSandbox } from './hooks/useSandbox'
 import { SettingsView } from './views/SettingsView'
 import { CreateView } from './views/CreateView'
 import { LinkedView } from './views/LinkedView'
+import { ViewHeader } from './components/ViewHeader'
 import { getProvider } from '../providers/registry'
 import type {
   FileConfig,
@@ -32,6 +33,9 @@ export function App() {
   const [fileConfig, setFileConfig] = useState<FileConfig | null>(null)
   const [pats, setPats] = useState<PatCache>({ notion: null, azure: null })
   const [thumb, setThumb] = useState<Uint8Array | null>(null)
+  // Explicit override — when the user clicks the settings cog, we want to show
+  // Settings even though a valid fileConfig exists.
+  const [forceSettings, setForceSettings] = useState(false)
 
   // Load file config + persisted PATs once on mount.
   useEffect(() => {
@@ -81,6 +85,7 @@ export function App() {
         providerId: payload.providerId,
         pat: payload.pat,
       })
+      setForceSettings(false)
       setMode(selectMode(sandbox.selection))
     },
     [sandbox],
@@ -175,9 +180,11 @@ export function App() {
     [pats],
   )
 
+  const openSettings = () => setForceSettings(true)
+
   if (mode === 'loading') return <div>Loading…</div>
 
-  if (!fileConfig || mode === 'settings') {
+  if (forceSettings || !fileConfig || mode === 'settings') {
     return (
       <SettingsView
         initialProviderId={fileConfig?.providerId ?? null}
@@ -186,6 +193,7 @@ export function App() {
         testAuth={testAuth}
         listBoards={listBoards}
         onSave={onSaveSettings}
+        onCancel={fileConfig ? () => setForceSettings(false) : undefined}
       />
     )
   }
@@ -193,7 +201,7 @@ export function App() {
   if (mode === 'empty' || sandbox.selection.kind !== 'single') {
     return (
       <div>
-        <h2>Tickets</h2>
+        <ViewHeader title="Tickets" onOpenSettings={openSettings} />
         <p>Select a single frame or section to create a ticket.</p>
       </div>
     )
@@ -206,6 +214,7 @@ export function App() {
         onOpen={onOpenTicket}
         onFocus={onFocusNode}
         onUnlink={onUnlink}
+        onOpenSettings={openSettings}
       />
     )
   }
@@ -220,6 +229,7 @@ export function App() {
       figmaDeepLink={deepLinkFor(fileConfig.fileKey, sandbox.selection.nodeId)}
       getFieldSchema={getFieldSchema}
       onCreate={onCreate}
+      onOpenSettings={openSettings}
     />
   )
 }

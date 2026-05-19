@@ -3,6 +3,7 @@ import { Button } from '../components/Button'
 import { Input } from '../components/Input'
 import { ErrorBanner } from '../components/ErrorBanner'
 import { ThumbnailPreview } from '../components/ThumbnailPreview'
+import { ViewHeader } from '../components/ViewHeader'
 import type {
   FieldSchema,
   ProviderId,
@@ -22,6 +23,7 @@ interface Props {
     boardId: string,
   ) => Promise<Result<FieldSchema>>
   onCreate: (input: TicketInput) => Promise<Result<unknown>>
+  onOpenSettings?: () => void
 }
 
 function reasonToMessage(reason: string): string {
@@ -42,6 +44,7 @@ export function CreateView({
   figmaDeepLink,
   getFieldSchema,
   onCreate,
+  onOpenSettings,
 }: Props) {
   const [schema, setSchema] = useState<FieldSchema | null>(null)
   const [schemaError, setSchemaError] = useState<string | null>(null)
@@ -89,7 +92,7 @@ export function CreateView({
 
   return (
     <div>
-      <h2>Create ticket</h2>
+      <ViewHeader title="Create ticket" onOpenSettings={onOpenSettings} />
       <p style={{ marginTop: -4, opacity: 0.7 }}>Destination: {boardLabel}</p>
 
       <ThumbnailPreview image={thumbnail} alt={nodeName} />

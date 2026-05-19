@@ -29,6 +29,13 @@ input[type="text"], input[type="password"], input[type="email"], select, textare
 }
 textarea { min-height: 80px; resize: vertical; }
 
+/* Header row with title + settings cog */
+.view-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 8px; }
+.view-header h2 { margin: 0; }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0; border-radius: 6px; border: 1px solid transparent; background: transparent; color: inherit; cursor: pointer; opacity: 0.7; }
+.icon-btn:hover { opacity: 1; background: var(--figma-color-bg-hover, rgba(127, 127, 127, 0.12)); }
+.icon-btn svg { width: 14px; height: 14px; display: block; }
+
 /* Provider radio group */
 .radio-group { display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--figma-color-border, #444); border-radius: 6px; padding: 8px 10px; margin: 0 0 10px; }
 .radio-group legend { padding: 0 4px; font-weight: 600; font-size: 11px; opacity: 0.85; }
