@@ -6,7 +6,10 @@ const API_VERSION = 'api-version=7.1'
 function parsePat(combined: string): { org: string; token: string } {
   const idx = combined.indexOf('|')
   if (idx < 0) throw new Error('Azure PAT must be formatted as "org|token"')
-  return { org: combined.slice(0, idx), token: combined.slice(idx + 1) }
+  const org = combined.slice(0, idx)
+  const token = combined.slice(idx + 1)
+  if (!org || !token) throw new Error('Azure PAT must be formatted as "org|token"')
+  return { org, token }
 }
 
 function parseBoardId(boardId: string): {
@@ -117,8 +120,9 @@ export const azureProvider: TicketProvider = {
     const ops: Array<{ op: 'add'; path: string; value: string }> = [
       { op: 'add', path: '/fields/System.Title', value: ticket.title },
     ]
+    const escapedLink = escapeHtml(ticket.figmaDeepLink)
     const descriptionHtml =
-      `<p><strong>Figma frame:</strong> <a href="${ticket.figmaDeepLink}">${ticket.figmaDeepLink}</a></p>` +
+      `<p><strong>Figma frame:</strong> <a href="${escapedLink}">${escapedLink}</a></p>` +
       (ticket.description ? `<p>${escapeHtml(ticket.description)}</p>` : '')
     ops.push({
       op: 'add',

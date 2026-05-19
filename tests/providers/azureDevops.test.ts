@@ -179,3 +179,56 @@ describe('azure.uploadAttachment', () => {
     expect(calls).toEqual(['upload', 'patch'])
   })
 })
+
+describe('azure.parsePat validation (via testAuth)', () => {
+  it('rejects PAT with no separator', async () => {
+    await expect(azureProvider.testAuth('nopipe')).rejects.toThrow(/org\|token/)
+  })
+
+  it('rejects PAT with empty org', async () => {
+    await expect(azureProvider.testAuth('|secret')).rejects.toThrow(/org\|token/)
+  })
+
+  it('rejects PAT with empty token', async () => {
+    await expect(azureProvider.testAuth('myorg|')).rejects.toThrow(/org\|token/)
+  })
+})
+
+describe('azure.createTicket HTML escaping', () => {
+  it('escapes figma deep link with ampersands', async () => {
+    let captured: RequestInit | undefined
+    installFetch([
+      {
+        matches: (u, init) => {
+          if (u.endsWith('/wit/workitems/$Bug?api-version=7.1')) {
+            captured = init
+            return true
+          }
+          return false
+        },
+        response: () =>
+          jsonResponse(200, {
+            id: 99,
+            _links: { html: { href: 'https://dev.azure.com/myorg/_workitems/edit/99' } },
+          }),
+      },
+    ])
+    await azureProvider.createTicket('myorg|secret', 'myorg|MyProj|MyTeam|Bug', {
+      title: 't',
+      description: 'desc with <script>',
+      type: null,
+      priority: null,
+      assigneeId: null,
+      labelIds: [],
+      figmaDeepLink: 'https://figma.com/file/abc?node-id=1%3A2&t=foo',
+    })
+    const ops = JSON.parse(captured?.body as string) as Array<{ path: string; value: string }>
+    const desc = ops.find((o) => o.path === '/fields/System.Description')?.value ?? ''
+    // Ampersand must be escaped (twice — once in href, once in text)
+    expect(desc).toContain('href="https://figma.com/file/abc?node-id=1%3A2&amp;t=foo"')
+    expect(desc).toContain('>https://figma.com/file/abc?node-id=1%3A2&amp;t=foo<')
+    // Description body still escaped
+    expect(desc).toContain('&lt;script&gt;')
+    expect(desc).not.toContain('<script>')
+  })
+})
