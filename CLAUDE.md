@@ -64,7 +64,13 @@ All HTTP goes through `tryRequest()` (`tryRequest.ts`), which normalizes respons
 
 Provider-specific quirks worth knowing:
 - **Azure**: PAT is stored as `"org|token"` (single string). `boardId` is `"org|project|workItemType"`. `parsePat` / `parseBoardId` enforce these shapes. Auth header is HTTP Basic with empty username: `'Basic ' + btoa(':' + token)`. Listing teams/work-item-types fails CORS from the plugin iframe, so we hardcode `DEFAULT_WORK_ITEM_TYPES` and only fetch projects.
-- **Notion**: Property names are discovered case-insensitively from the database schema (`discoverPropertyNames`) — "Type", "type", and "TYPE" are all matched. Attachment upload is currently a no-op (`supported: false`); the Figma deep link goes in a callout block instead.
+- **Azure field routing**: `createTicket` writes structured content into native Azure fields when present in `TicketInput`:
+  - `description` → `System.Description` (passed through as-is; composer owns escaping, see UI section below)
+  - `acceptanceCriteriaHtml` → `Microsoft.VSTS.Common.AcceptanceCriteria`
+  - `reproStepsHtml` → `Microsoft.VSTS.TCM.ReproSteps`
+  - `figmaDeepLink` → both embedded as a `<p><strong>Figma:</strong> …</p>` block at the top of Description **and** attached as a `Hyperlink` relation via `/relations/-`. Belt-and-suspenders: relation is the queryable anchor, description block is the obvious scan target. Don't remove either.
+- **Azure attachment bytes** must be wrapped in a `Blob`, not passed as a raw `Uint8Array`. Figma's UI iframe stringifies typed arrays going into `fetch()` (Azure receives `"[object Uint8Array]"` instead of the PNG). See `uploadAttachment` in `azureDevops.ts`.
+- **Notion**: Property names are discovered case-insensitively from the database schema (`discoverPropertyNames`) — "Type", "type", and "TYPE" are all matched. Attachment upload is currently a no-op (`supported: false`); the Figma deep link goes in a callout block instead. Notion **ignores** `acceptanceCriteriaHtml` and `reproStepsHtml` today — those fields are Azure-only.
 
 ### Storage — `src/storage/`
 
@@ -86,13 +92,32 @@ loading → settings (no fileConfig) → create | linked | empty (depending on s
 
 Two non-obvious behaviors:
 1. **`pluginData` writes don't fire `selectionchange`.** After `write-ticket-link` or `clear-ticket-link`, the UI must explicitly `request({ type: 'get-selection-state' })` to refresh — otherwise it stays on the wrong view.
-2. **`justCreatedId`** is set *before* the post-create refresh so the LinkedView shows the "Ticket created" banner on its first render. It clears when `selectedNodeId` changes.
+2. **`justCreatedId`** is set *before* the post-create refresh so the LinkedView shows the "Ticket created" banner on its first render. It clears when `selectedNodeId` changes. `attachmentFailedId` follows the same pattern for the "thumbnail couldn't be attached" warning.
 
 Views (`src/ui/views/`) are presentational; they receive callbacks and `Result<T>` promises from `App.tsx` and render. Don't put fetch logic or sandbox calls inside view components.
 
+### Description composer — `src/ui/composeDescription.ts`
+
+The composer is the single trust boundary that turns user-typed markdown into safe HTML for Azure. It's a pure function called from `CreateView.submit()`.
+
+Input is structured (`main`, `reproSteps`, `expected`, `actual`, `acceptanceCriteria`, `outOfScope`, optional `figmaLink`); output is `{ description, acceptanceCriteriaHtml, reproStepsHtml }`. Three outputs because Azure has native fields for AC and ReproSteps — those don't belong in Description.
+
+Pipeline per field:
+1. `marked.parse()` (block) or `marked.parseInline()` (list items) renders markdown → HTML. Configured with `gfm: true, breaks: true` — single newlines in textareas become `<br>`.
+2. `DOMPurify.sanitize()` with an `ALLOWED_TAGS` whitelist (`p`, `br`, `strong`, `em`, `b`, `i`, `code`, `pre`, `a`, `ul`, `ol`, `li`, `h2`, `h3`, `blockquote`) and `ALLOWED_ATTR: ['href']`. `FORBID_TAGS` explicitly blocks `img`, `script`, `style`, `iframe` — no external image embeds in Azure descriptions (privacy + render reliability) and no script-y vectors.
+3. For list-shaped fields (AC, ReproSteps): split on newlines, strip leading list markers (`-`, `*`, `•`, `1.`, `2)`) since users keep typing them, then wrap each rendered line in `<li>`.
+
+Because the composer owns escaping, **`azureProvider.createTicket` must not double-escape** — it passes `description`, `acceptanceCriteriaHtml`, and `reproStepsHtml` through as-is.
+
+`CreateView` chooses which sections to render based on the Azure work item type (`Bug` → repro/expected/actual; `User Story` / `Feature` → AC + out of scope; `Task` / `Epic` → AC only; unknown → User Story set as a safe default). The mapping lives in `sectionSetFor()` in `CreateView.tsx`. WIT is parsed out of `boardId` by `workItemTypeFor()` in `App.tsx`; Notion-flavored boards return `undefined` and CreateView falls back to the User Story set.
+
 ### Selection contract — `src/sandbox/selection.ts`
 
-`classifySelection()` returns one of `{kind: 'none' | 'multi' | 'unsupported' | 'single'}`. Supported node types are `FRAME | COMPONENT | COMPONENT_SET | INSTANCE | SECTION`. `exportThumbnail()` caps the longest edge at 2048px (otherwise scales 2×) — keep this when changing export logic, since both providers expect a bounded image size.
+`classifySelection()` returns one of `{kind: 'none' | 'multi' | 'unsupported' | 'single'}`. Supported node types are `FRAME | COMPONENT | COMPONENT_SET | INSTANCE | SECTION`.
+
+`exportThumbnail()` returns `{ bytes, oversized }`, not a bare `Uint8Array`. Two limits apply:
+- Longest edge capped at 2048px (otherwise scales 2×) so the PNG dimensions stay sane.
+- Resulting PNG capped at **5MB** (`MAX_THUMB_BYTES`). Beyond that — typical for large multi-frame sections — `bytes` is `null` and `oversized: true`. The UI surfaces this upfront with a "section too large to attach" banner; the ticket still creates with the Figma link, the thumbnail is just skipped. The 5MB threshold matches Notion's free-workspace cap and is well under Azure's 60MB ceiling.
 
 `documentAccess: 'dynamic-page'` in the manifest means node lookups in the sandbox **must** use `figma.getNodeByIdAsync()`, not synchronous `getNodeById`. `findNode()` in `main.ts` is the only call site.
 
@@ -108,9 +133,10 @@ Tests mirror `src/` exactly (e.g. `src/providers/notion.ts` → `tests/providers
 ## Conventions
 
 - **`strict` + `noUncheckedIndexedAccess`** in `tsconfig.json` — `arr[0]` is `T | undefined`; either narrow or use `!` if you can prove it's safe (e.g. after a `length` check).
-- **No external runtime deps** beyond React. The sandbox bundle in particular must stay tiny and dependency-free — adding a library that pulls in Node/DOM polyfills will silently break in QuickJS.
-- **Errors from provider calls are normalized, not thrown.** Don't `try/catch` `Result<T>` returns; branch on `.ok`.
+- **Sandbox bundle must stay tiny and dependency-free.** It runs in QuickJS; libraries that pull in Node/DOM polyfills silently break there. The UI bundle is allowed real dependencies (currently React, `marked`, `isomorphic-dompurify`) but check the bundle delta — the UI ships inlined into a single HTML file via `vite-plugin-singlefile`. Anything you add to UI imports must NOT be imported by `src/sandbox/` or `src/shared/`, or it'll leak into the sandbox bundle.
+- **Errors from provider calls are normalized, not thrown.** Don't `try/catch` `Result<T>` returns; branch on `.ok`. Error detail from the provider body (e.g. Azure's "field X is required") is surfaced verbatim in `CreateView` via `extractProviderDetail()`.
 - **Don't widen `networkAccess.allowedDomains`** without updating both `manifest.json` and `SECURITY.md` — Figma reviewers read both. Currently locked to `api.notion.com`, `dev.azure.com`, `*.visualstudio.com`.
+- **HTML produced by `composeDescription` is trusted by providers.** If you add another consumer of user-typed prose, run it through the composer (or DOMPurify directly) — don't hand-roll escaping again.
 - The manifest `id` (`shipframe-local-dev`) is overwritten by Figma on first publish. Leave it as-is.
 
 ## Pre-release QA
