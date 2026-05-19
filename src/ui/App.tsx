@@ -36,6 +36,9 @@ export function App() {
   // Explicit override — when the user clicks the settings cog, we want to show
   // Settings even though a valid fileConfig exists.
   const [forceSettings, setForceSettings] = useState(false)
+  // The id of the most recently-created ticket, used by LinkedView to show a
+  // "just created" success banner. Cleared when selection changes.
+  const [justCreatedId, setJustCreatedId] = useState<string | null>(null)
 
   // Load file config + persisted PATs once on mount.
   useEffect(() => {
@@ -56,6 +59,14 @@ export function App() {
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Clear the "just created" banner when the user selects a different node.
+  // Keyed on nodeId so it survives the same-node refresh after create.
+  const selectedNodeId =
+    sandbox.selection.kind === 'single' ? sandbox.selection.nodeId : null
+  useEffect(() => {
+    setJustCreatedId(null)
+  }, [selectedNodeId])
 
   // React to selection changes when configured.
   useEffect(() => {
@@ -152,6 +163,12 @@ export function App() {
           nodeId: sandbox.selection.nodeId,
           link,
         })
+        // Mark this link as "just created" BEFORE refreshing selection so the
+        // success banner is visible on the very first LinkedView render.
+        setJustCreatedId(link.id)
+        // pluginData writes don't fire selectionchange — refresh manually so
+        // the UI flips from CreateView to LinkedView.
+        await sandbox.request({ type: 'get-selection-state' })
       }
       return { ok: true, value: created.value, status: created.status }
     },
@@ -211,6 +228,7 @@ export function App() {
     return (
       <LinkedView
         link={sandbox.selection.link}
+        justCreated={justCreatedId === sandbox.selection.link.id}
         onOpen={onOpenTicket}
         onFocus={onFocusNode}
         onUnlink={onUnlink}

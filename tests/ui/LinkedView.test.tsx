@@ -6,6 +6,7 @@ import { LinkedView } from '../../src/ui/views/LinkedView'
 const onOpen = vi.fn()
 const onFocus = vi.fn()
 const onUnlink = vi.fn()
+const onOpenSettings = vi.fn()
 
 const link = {
   id: 'AZ-42',
@@ -18,15 +19,18 @@ beforeEach(() => {
   onOpen.mockReset()
   onFocus.mockReset()
   onUnlink.mockReset()
+  onOpenSettings.mockReset()
 })
 
-function renderView() {
+function renderView(props: { justCreated?: boolean } = {}) {
   return render(
     <LinkedView
       link={link}
+      justCreated={props.justCreated}
       onOpen={onOpen}
       onFocus={onFocus}
       onUnlink={onUnlink}
+      onOpenSettings={onOpenSettings}
     />,
   )
 }
@@ -56,5 +60,23 @@ describe('LinkedView', () => {
     expect(onUnlink).not.toHaveBeenCalled()
     await userEvent.click(screen.getByRole('button', { name: /confirm unlink/i }))
     expect(onUnlink).toHaveBeenCalled()
+  })
+
+  it('shows a success banner when justCreated is true', () => {
+    renderView({ justCreated: true })
+    const banner = screen.getByRole('status')
+    expect(banner).toHaveTextContent(/ticket created/i)
+    expect(banner).toHaveTextContent(/AZ-42/)
+  })
+
+  it('hides the success banner by default', () => {
+    renderView()
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('clicking the banner link opens the ticket', async () => {
+    renderView({ justCreated: true })
+    await userEvent.click(screen.getByRole('link', { name: /open AZ-42/i }))
+    expect(onOpen).toHaveBeenCalledWith('https://x/42')
   })
 })

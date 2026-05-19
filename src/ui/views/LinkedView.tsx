@@ -5,6 +5,8 @@ import type { TicketLink } from '../../shared/types'
 
 interface Props {
   link: TicketLink
+  /** When set and equal to `link.id`, render a "Ticket created" success banner. */
+  justCreated?: boolean
   onOpen: (url: string) => void
   onFocus: () => void
   onUnlink: () => void
@@ -15,11 +17,26 @@ function providerLabel(id: TicketLink['providerId']): string {
   return id === 'notion' ? 'Notion' : 'Azure DevOps'
 }
 
-export function LinkedView({ link, onOpen, onFocus, onUnlink, onOpenSettings }: Props) {
+export function LinkedView({
+  link,
+  justCreated = false,
+  onOpen,
+  onFocus,
+  onUnlink,
+  onOpenSettings,
+}: Props) {
   const [confirming, setConfirming] = useState(false)
   return (
     <div>
       <ViewHeader title="Linked" onOpenSettings={onOpenSettings} />
+      {justCreated && (
+        <div className="success-banner" role="status">
+          Ticket created.{' '}
+          <a href={link.url} onClick={(e) => { e.preventDefault(); onOpen(link.url) }}>
+            Open {link.id}
+          </a>
+        </div>
+      )}
       <p>
         Ticket <strong>{link.id}</strong> on {providerLabel(link.providerId)}
       </p>

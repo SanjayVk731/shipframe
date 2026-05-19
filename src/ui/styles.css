@@ -14,6 +14,8 @@ h2 { font-size: 14px; font-weight: 700; margin: 0 0 12px; }
 .btn-primary { background: #18a0fb; color: #fff; border-color: #18a0fb; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .banner { background: #fdecea; color: #b3261e; border: 1px solid #f4b3ad; padding: 8px; border-radius: 6px; margin-bottom: 10px; }
+.success-banner { background: #e6f7ec; color: #166534; border: 1px solid #a7e3bd; padding: 8px; border-radius: 6px; margin-bottom: 10px; }
+.success-banner a { color: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
 .thumb { width: 100%; max-height: 180px; object-fit: contain; border: 1px solid var(--figma-color-border, #eee); border-radius: 6px; background: var(--figma-color-bg-secondary, #f5f5f5); }
 
 /* text-style inputs span the field; radios/checkboxes do not */
