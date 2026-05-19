@@ -2,6 +2,7 @@ import type {
   SelectionState,
   TicketLink,
   FileConfig,
+  ProviderId,
 } from '../shared/types'
 
 export type UiToSandbox =
@@ -16,8 +17,8 @@ export type UiToSandbox =
   | { type: 'clear-ticket-link'; nodeId: string; requestId: string }
   | { type: 'get-file-config'; requestId: string }
   | { type: 'set-file-config'; config: FileConfig; requestId: string }
-  | { type: 'get-pat'; providerId: 'notion' | 'azure'; requestId: string }
-  | { type: 'set-pat'; providerId: 'notion' | 'azure'; pat: string; requestId: string }
+  | { type: 'get-pat'; providerId: ProviderId; requestId: string }
+  | { type: 'set-pat'; providerId: ProviderId; pat: string; requestId: string }
   | { type: 'open-external'; url: string }
 
 export type SandboxToUi =
@@ -29,7 +30,7 @@ export type SandboxToUi =
       requestId: string
     }
   | { type: 'file-config'; config: FileConfig | null; requestId: string }
-  | { type: 'pat'; providerId: 'notion' | 'azure'; pat: string | null; requestId: string }
+  | { type: 'pat'; providerId: ProviderId; pat: string | null; requestId: string }
   | { type: 'ack'; requestId: string }
   | { type: 'error'; reason: string; requestId: string }
   | { type: 'selection-changed'; state: SelectionState }
