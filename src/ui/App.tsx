@@ -23,12 +23,11 @@ interface PatCache {
 function deepLinkFor(fileKey: string | null, nodeId: string): string {
   // Figma node IDs use ':' internally (e.g. '1:2') but '-' in URLs (e.g. '1-2').
   const urlNodeId = nodeId.replace(/:/g, '-')
-  if (!fileKey) {
-    // No file key yet — fall back to a node-id-only URL. Better than nothing while
-    // the file-info round-trip is in flight; rare in practice.
-    return `https://www.figma.com/?node-id=${encodeURIComponent(urlNodeId)}`
-  }
-  return `https://www.figma.com/design/${fileKey}/?node-id=${encodeURIComponent(urlNodeId)}`
+  const url = !fileKey
+    ? `https://www.figma.com/?node-id=${encodeURIComponent(urlNodeId)}`
+    : `https://www.figma.com/design/${fileKey}/?node-id=${encodeURIComponent(urlNodeId)}`
+  console.log('[figma-tickets] deepLinkFor', { fileKey, nodeId, urlNodeId, url })
+  return url
 }
 
 export function App() {
@@ -55,7 +54,10 @@ export function App() {
         notion: notionPat.type === 'pat' ? notionPat.pat : null,
         azure: azurePat.type === 'pat' ? azurePat.pat : null,
       })
-      if (fileInfo.type === 'file-info') setFileKey(fileInfo.fileKey)
+      if (fileInfo.type === 'file-info') {
+        console.log('[figma-tickets] fileKey:', fileInfo.fileKey, 'fileName:', fileInfo.fileName)
+        setFileKey(fileInfo.fileKey)
+      }
       setMode(cfg ? selectMode(sandbox.selection) : 'settings')
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
