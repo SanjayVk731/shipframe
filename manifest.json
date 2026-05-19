@@ -12,7 +12,6 @@
       "https://dev.azure.com",
       "https://*.visualstudio.com"
     ],
-    "reasoning": "Creates tickets in the user's chosen tracker (Notion or Azure DevOps) from a selected frame. Network calls go directly from the user's machine to the provider API using a Personal Access Token they enter; no third-party servers are involved.",
-    "devAllowedDomains": ["http://localhost:*"]
+    "reasoning": "Creates tickets in the user's chosen tracker (Notion or Azure DevOps) from a selected frame. Network calls go directly from the user's machine to the provider API using a Personal Access Token they enter; no third-party servers are involved."
   }
 }
