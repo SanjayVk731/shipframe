@@ -50,6 +50,15 @@ export interface TicketInput {
   reproStepsHtml?: string
 }
 
+export interface FrameContext {
+  frameName: string
+  workItemType: string | undefined
+  /** Native Figma annotation labels on the frame. */
+  annotations: string[]
+  /** Visible TEXT.characters from descendants, bounded — see frameContext.ts. */
+  textLayers: string[]
+}
+
 export interface Board {
   id: string
   label: string

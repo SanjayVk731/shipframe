@@ -1,10 +1,11 @@
-import { describe, it, expectTypeOf } from 'vitest'
+import { describe, it, expect, expectTypeOf } from 'vitest'
 import type {
   ProviderId,
   TicketLink,
   FileConfig,
   SelectionState,
   TicketInput,
+  FrameContext,
 } from '../../src/shared/types'
 
 describe('shared types', () => {
@@ -49,5 +50,20 @@ describe('shared types', () => {
       figmaDeepLink: 'https://figma.com/...',
     }
     expectTypeOf(t.labelIds).toEqualTypeOf<string[]>()
+  })
+})
+
+describe('FrameContext', () => {
+  it('FrameContext shape compiles', () => {
+    const ctx: FrameContext = {
+      frameName: 'Login',
+      workItemType: 'Bug',
+      annotations: ['Submit broken'],
+      textLayers: ['Sign in', 'Email'],
+    }
+    expect(ctx.frameName).toBe('Login')
+    expectTypeOf(ctx.annotations).toEqualTypeOf<string[]>()
+    expectTypeOf(ctx.textLayers).toEqualTypeOf<string[]>()
+    expectTypeOf(ctx.workItemType).toEqualTypeOf<string | undefined>()
   })
 })
