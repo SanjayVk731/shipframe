@@ -18,6 +18,58 @@ function titleOf(db: { title?: Array<{ plain_text?: string }> }): string {
   return joined.length > 0 ? joined : 'Untitled'
 }
 
+interface SelectProp {
+  type: 'select'
+  select: { options: Array<{ id: string; name: string }> }
+}
+interface MultiSelectProp {
+  type: 'multi_select'
+  multi_select: { options: Array<{ id: string; name: string }> }
+}
+interface OtherProp {
+  type: string
+}
+type NotionProp = SelectProp | MultiSelectProp | OtherProp
+const isSelect = (p: NotionProp): p is SelectProp => p.type === 'select'
+const isMultiSelect = (p: NotionProp): p is MultiSelectProp =>
+  p.type === 'multi_select'
+
+interface DiscoveredProps {
+  titleProp: string | null
+  typeProp: string | null
+  priorityProp: string | null
+  assigneeProp: string | null
+  labelsProp: string | null
+}
+
+function discoverPropertyNames(db: {
+  properties: Record<string, NotionProp>
+}): DiscoveredProps {
+  let titleProp: string | null = null
+  let typeProp: string | null = null
+  let priorityProp: string | null = null
+  let assigneeProp: string | null = null
+  let labelsProp: string | null = null
+
+  for (const [name, prop] of Object.entries(db.properties)) {
+    const lower = name.toLowerCase()
+    if (prop.type === 'title' && titleProp === null) {
+      titleProp = name
+    } else if (isSelect(prop)) {
+      if (lower === 'type' && typeProp === null) typeProp = name
+      else if (lower === 'priority' && priorityProp === null) priorityProp = name
+    } else if (isMultiSelect(prop)) {
+      if ((lower === 'labels' || lower === 'tags') && labelsProp === null) {
+        labelsProp = name
+      }
+    } else if (prop.type === 'people' && assigneeProp === null) {
+      assigneeProp = name
+    }
+  }
+
+  return { titleProp, typeProp, priorityProp, assigneeProp, labelsProp }
+}
+
 export const notionProvider: TicketProvider = {
   id: 'notion',
   displayName: 'Notion',
@@ -49,48 +101,38 @@ export const notionProvider: TicketProvider = {
   },
 
   async getFieldSchema(pat, boardId) {
-    interface SelectProp {
-      type: 'select'
-      select: { options: Array<{ id: string; name: string }> }
-    }
-    interface MultiSelectProp {
-      type: 'multi_select'
-      multi_select: { options: Array<{ id: string; name: string }> }
-    }
-    interface OtherProp {
-      type: string
-    }
-    type NotionProp = SelectProp | MultiSelectProp | OtherProp
-    const isSelect = (p: NotionProp): p is SelectProp => p.type === 'select'
-    const isMultiSelect = (p: NotionProp): p is MultiSelectProp =>
-      p.type === 'multi_select'
-
     const dbRes = await tryRequest<{
       properties: Record<string, NotionProp>
     }>(() => fetch(`${API}/databases/${boardId}`, { headers: headers(pat) }))
     if (!dbRes.ok) return dbRes
 
+    const discovered = discoverPropertyNames(dbRes.value)
+
     let types: Array<{ id: string; label: string }> = []
     let priorities: Array<{ id: string; label: string }> = []
     let labels: Array<{ id: string; label: string }> = []
-    let needsPeople = false
-    for (const [name, prop] of Object.entries(dbRes.value.properties)) {
-      const lower = name.toLowerCase()
-      if (isSelect(prop)) {
-        const opts = prop.select.options.map((o) => ({ id: o.id, label: o.name }))
-        if (lower === 'type') types = opts
-        else if (lower === 'priority') priorities = opts
-      } else if (isMultiSelect(prop)) {
-        if (lower === 'labels' || lower === 'tags') {
-          labels = prop.multi_select.options.map((o) => ({ id: o.id, label: o.name }))
-        }
-      } else if (prop.type === 'people') {
-        needsPeople = true
+
+    if (discovered.typeProp) {
+      const prop = dbRes.value.properties[discovered.typeProp]
+      if (prop && isSelect(prop)) {
+        types = prop.select.options.map((o) => ({ id: o.id, label: o.name }))
+      }
+    }
+    if (discovered.priorityProp) {
+      const prop = dbRes.value.properties[discovered.priorityProp]
+      if (prop && isSelect(prop)) {
+        priorities = prop.select.options.map((o) => ({ id: o.id, label: o.name }))
+      }
+    }
+    if (discovered.labelsProp) {
+      const prop = dbRes.value.properties[discovered.labelsProp]
+      if (prop && isMultiSelect(prop)) {
+        labels = prop.multi_select.options.map((o) => ({ id: o.id, label: o.name }))
       }
     }
 
     let assignees: Array<{ id: string; label: string }> = []
-    if (needsPeople) {
+    if (discovered.assigneeProp) {
       const usersRes = await tryRequest<{
         results: Array<{ id: string; name?: string; type: string }>
       }>(() => fetch(`${API}/users`, { headers: headers(pat) }))
@@ -108,15 +150,41 @@ export const notionProvider: TicketProvider = {
   },
 
   async createTicket(pat, boardId, ticket) {
-    const properties: Record<string, unknown> = {
-      Name: { title: [{ text: { content: ticket.title } }] },
+    const dbRes = await tryRequest<{
+      properties: Record<string, NotionProp>
+    }>(() => fetch(`${API}/databases/${boardId}`, { headers: headers(pat) }))
+    if (!dbRes.ok) return dbRes
+
+    const discovered = discoverPropertyNames(dbRes.value)
+
+    if (!discovered.titleProp) {
+      return {
+        ok: false,
+        reason: 'unknown',
+        status: 500,
+        detail: 'no title property on database',
+      }
     }
-    if (ticket.type) properties.Type = { select: { id: ticket.type } }
-    if (ticket.priority) properties.Priority = { select: { id: ticket.priority } }
-    if (ticket.assigneeId)
-      properties.Assignee = { people: [{ id: ticket.assigneeId }] }
-    if (ticket.labelIds.length > 0)
-      properties.Labels = { multi_select: ticket.labelIds.map((id) => ({ id })) }
+
+    const properties: Record<string, unknown> = {
+      [discovered.titleProp]: { title: [{ text: { content: ticket.title } }] },
+    }
+    if (ticket.type && discovered.typeProp) {
+      properties[discovered.typeProp] = { select: { id: ticket.type } }
+    }
+    if (ticket.priority && discovered.priorityProp) {
+      properties[discovered.priorityProp] = { select: { id: ticket.priority } }
+    }
+    if (ticket.assigneeId && discovered.assigneeProp) {
+      properties[discovered.assigneeProp] = {
+        people: [{ id: ticket.assigneeId }],
+      }
+    }
+    if (ticket.labelIds.length > 0 && discovered.labelsProp) {
+      properties[discovered.labelsProp] = {
+        multi_select: ticket.labelIds.map((id) => ({ id })),
+      }
+    }
 
     const children: unknown[] = [
       {
