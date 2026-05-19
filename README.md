@@ -52,6 +52,8 @@ npm run typecheck
 - [ ] Non-frame (text node) → empty state.
 - [ ] Frame larger than 2048px → ticket still created (thumbnail downscaled).
 - [ ] Notion integration without any shared databases → help text in Settings.
+- [ ] **Auto-pin sanity:** Create a ticket on a frame → confirm a numbered annotation appears on the frame and is visible in Figma's Annotations panel; clicking it opens the correct ticket. Re-select the same frame: no duplicate pin. Manually delete the pin and reopen the plugin on the same frame: pin is recreated.
+- [ ] **AI Draft sanity:** With an Anthropic (or OpenAI) key configured in Settings and a frame that has at least one native annotation, click ✨ Draft → confirm the form pre-fills coherently for the chosen WIT (Bug shows reproSteps/expected/actual; User Story shows acceptanceCriteria/outOfScope). Edit and Create the ticket; confirm it lands as expected. Unconfigure the key in Settings → the Draft button disappears.
 
 ## Architecture
 
