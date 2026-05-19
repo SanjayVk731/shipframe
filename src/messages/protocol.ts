@@ -19,6 +19,7 @@ export type UiToSandbox =
   | { type: 'set-file-config'; config: FileConfig; requestId: string }
   | { type: 'get-pat'; providerId: ProviderId; requestId: string }
   | { type: 'set-pat'; providerId: ProviderId; pat: string; requestId: string }
+  | { type: 'get-file-info'; requestId: string }
   | { type: 'open-external'; url: string }
 
 export type SandboxToUi =
@@ -31,6 +32,7 @@ export type SandboxToUi =
     }
   | { type: 'file-config'; config: FileConfig | null; requestId: string }
   | { type: 'pat'; providerId: ProviderId; pat: string | null; requestId: string }
+  | { type: 'file-info'; fileKey: string | null; fileName: string; requestId: string }
   | { type: 'ack'; requestId: string }
   | { type: 'error'; reason: string; requestId: string }
   | { type: 'selection-changed'; state: SelectionState }
@@ -44,6 +46,7 @@ const UI_TYPES = new Set<UiToSandbox['type']>([
   'set-file-config',
   'get-pat',
   'set-pat',
+  'get-file-info',
   'open-external',
 ])
 
@@ -52,6 +55,7 @@ const SANDBOX_TYPES = new Set<SandboxToUi['type']>([
   'thumbnail',
   'file-config',
   'pat',
+  'file-info',
   'ack',
   'error',
   'selection-changed',

@@ -20,11 +20,15 @@ interface PatCache {
   azure: string | null
 }
 
-function deepLinkFor(nodeId: string): string {
-  // Figma deep link via plugin runtime is not directly available in UI iframe;
-  // we leave a placeholder URL. The sandbox could supply this; for v1 we use
-  // a generic Figma URL that surfaces the node id.
-  return `https://www.figma.com/file/?node-id=${encodeURIComponent(nodeId)}`
+function deepLinkFor(fileKey: string | null, nodeId: string): string {
+  // Figma node IDs use ':' internally (e.g. '1:2') but '-' in URLs (e.g. '1-2').
+  const urlNodeId = nodeId.replace(/:/g, '-')
+  if (!fileKey) {
+    // No file key yet — fall back to a node-id-only URL. Better than nothing while
+    // the file-info round-trip is in flight; rare in practice.
+    return `https://www.figma.com/?node-id=${encodeURIComponent(urlNodeId)}`
+  }
+  return `https://www.figma.com/design/${fileKey}/?node-id=${encodeURIComponent(urlNodeId)}`
 }
 
 export function App() {
@@ -33,22 +37,25 @@ export function App() {
   const [fileConfig, setFileConfig] = useState<FileConfig | null>(null)
   const [pats, setPats] = useState<PatCache>({ notion: null, azure: null })
   const [thumb, setThumb] = useState<Uint8Array | null>(null)
+  const [fileKey, setFileKey] = useState<string | null>(null)
 
-  // Load file config + persisted PATs once on mount.
+  // Load file config + persisted PATs + file key once on mount.
   useEffect(() => {
     void (async () => {
       const cfgRes = await sandbox.request({ type: 'get-file-config' })
       const cfg =
         cfgRes.type === 'file-config' ? cfgRes.config : null
       setFileConfig(cfg)
-      const [notionPat, azurePat] = await Promise.all([
+      const [notionPat, azurePat, fileInfo] = await Promise.all([
         sandbox.request({ type: 'get-pat', providerId: 'notion' }),
         sandbox.request({ type: 'get-pat', providerId: 'azure' }),
+        sandbox.request({ type: 'get-file-info' }),
       ])
       setPats({
         notion: notionPat.type === 'pat' ? notionPat.pat : null,
         azure: azurePat.type === 'pat' ? azurePat.pat : null,
       })
+      if (fileInfo.type === 'file-info') setFileKey(fileInfo.fileKey)
       setMode(cfg ? selectMode(sandbox.selection) : 'settings')
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -205,7 +212,7 @@ export function App() {
       boardLabel={fileConfig.boardLabel}
       nodeName={sandbox.selection.nodeName}
       thumbnail={thumb}
-      figmaDeepLink={deepLinkFor(sandbox.selection.nodeId)}
+      figmaDeepLink={deepLinkFor(fileKey, sandbox.selection.nodeId)}
       getFieldSchema={getFieldSchema}
       onCreate={onCreate}
     />
