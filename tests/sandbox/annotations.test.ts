@@ -144,4 +144,27 @@ describe('syncAnnotation', () => {
     })
     expect(node.annotations).toEqual([{ label: 'AZURE-1234', categoryId: 'azure' }])
   })
+
+  it('returns node-missing when getNodeByIdAsync resolves null', async () => {
+    installFigmaMock() // empty: no nodes registered
+    const result = await syncAnnotation('99:99', {
+      providerId: 'azure',
+      ticketId: '1',
+      title: 't',
+    })
+    expect(result).toEqual({ ok: false, reason: 'node-missing' })
+  })
+
+  it('returns api-unavailable when figma.annotations is undefined', async () => {
+    const { makeNode, figma } = installFigmaMock()
+    makeNode('1:2', 'FRAME', 'Login')
+    // Simulate older Figma without annotations API
+    delete (figma as any).annotations
+    const result = await syncAnnotation('1:2', {
+      providerId: 'azure',
+      ticketId: '1',
+      title: 't',
+    })
+    expect(result).toEqual({ ok: false, reason: 'api-unavailable' })
+  })
 })
