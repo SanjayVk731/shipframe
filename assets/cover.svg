@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" role="img" aria-label="Tickets — Figma frame to Notion or Azure DevOps ticket">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0F1115"/>
+      <stop offset="100%" stop-color="#171A21"/>
+    </linearGradient>
+    <linearGradient id="frameFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1E2230"/>
+      <stop offset="100%" stop-color="#161924"/>
+    </linearGradient>
+    <linearGradient id="ticketFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#F3F4F6"/>
+    </linearGradient>
+    <filter id="frameShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="20" stdDeviation="30" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+    <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="16" stdDeviation="24" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+    <marker id="arrowHead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#18A0FB"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+
+  <!-- Subtle grid -->
+  <g stroke="#FFFFFF" stroke-opacity="0.025" stroke-width="1">
+    <path d="M0 270 H1920 M0 540 H1920 M0 810 H1920"/>
+    <path d="M480 0 V1080 M960 0 V1080 M1440 0 V1080"/>
+  </g>
+
+  <!-- LEFT: Figma frame mock -->
+  <g transform="translate(180,260)" filter="url(#frameShadow)">
+    <!-- Frame label (above) -->
+    <g font-family="Inter, system-ui, sans-serif">
+      <rect x="0" y="-44" width="120" height="28" rx="6" fill="#18A0FB" fill-opacity="0.15" stroke="#18A0FB" stroke-opacity="0.6" stroke-width="1"/>
+      <text x="14" y="-24" font-size="16" font-weight="600" fill="#18A0FB" letter-spacing="0.5">FRAME</text>
+    </g>
+    <!-- Frame body -->
+    <rect x="0" y="0" width="620" height="500" rx="18" fill="url(#frameFill)" stroke="#2A2F3D" stroke-width="1.5"/>
+    <!-- Frame inner header bar -->
+    <rect x="32" y="32" width="180" height="22" rx="4" fill="#2A2F3D"/>
+    <rect x="32" y="64" width="120" height="14" rx="3" fill="#2A2F3D" fill-opacity="0.7"/>
+    <!-- Frame content blocks -->
+    <rect x="32" y="120" width="556" height="180" rx="10" fill="#22273A"/>
+    <circle cx="120" cy="210" r="36" fill="#18A0FB" fill-opacity="0.25" stroke="#18A0FB" stroke-opacity="0.6" stroke-width="2"/>
+    <rect x="180" y="190" width="280" height="14" rx="3" fill="#3B4254"/>
+    <rect x="180" y="216" width="220" height="14" rx="3" fill="#2F3445"/>
+    <!-- Two stacked cards -->
+    <rect x="32" y="320" width="270" height="146" rx="10" fill="#22273A"/>
+    <rect x="60" y="348" width="160" height="14" rx="3" fill="#3B4254"/>
+    <rect x="60" y="374" width="120" height="10" rx="3" fill="#2F3445"/>
+    <rect x="60" y="392" width="200" height="10" rx="3" fill="#2F3445"/>
+    <rect x="60" y="410" width="140" height="10" rx="3" fill="#2F3445"/>
+    <rect x="318" y="320" width="270" height="146" rx="10" fill="#22273A"/>
+    <rect x="346" y="348" width="140" height="14" rx="3" fill="#3B4254"/>
+    <rect x="346" y="374" width="180" height="10" rx="3" fill="#2F3445"/>
+    <rect x="346" y="392" width="120" height="10" rx="3" fill="#2F3445"/>
+    <rect x="346" y="410" width="160" height="10" rx="3" fill="#2F3445"/>
+  </g>
+
+  <!-- ARROW between frame and ticket -->
+  <g transform="translate(840,500)">
+    <!-- Click chip on the arrow -->
+    <g transform="translate(80,-44)" font-family="Inter, system-ui, sans-serif">
+      <rect x="0" y="0" width="148" height="34" rx="17" fill="#18A0FB"/>
+      <text x="74" y="22" font-size="14" font-weight="600" fill="#0F1115" text-anchor="middle">Create ticket</text>
+    </g>
+    <!-- Arrow line -->
+    <path d="M 0 30 L 230 30" stroke="#18A0FB" stroke-width="6" stroke-linecap="round" fill="none" marker-end="url(#arrowHead)"/>
+  </g>
+
+  <!-- RIGHT: Ticket card -->
+  <g transform="translate(1130,260)" filter="url(#cardShadow)">
+    <!-- Ticket label (above) -->
+    <g font-family="Inter, system-ui, sans-serif">
+      <rect x="0" y="-44" width="120" height="28" rx="6" fill="#22C55E" fill-opacity="0.15" stroke="#22C55E" stroke-opacity="0.7" stroke-width="1"/>
+      <text x="14" y="-24" font-size="16" font-weight="600" fill="#22C55E" letter-spacing="0.5">TICKET</text>
+    </g>
+    <!-- Card -->
+    <rect x="0" y="0" width="620" height="500" rx="18" fill="url(#ticketFill)" stroke="#E5E7EB" stroke-width="1"/>
+    <!-- Header row: ID + provider chip -->
+    <g font-family="Inter, system-ui, sans-serif">
+      <text x="36" y="62" font-size="20" font-weight="700" fill="#111827">AZURE-1234</text>
+      <rect x="490" y="38" width="94" height="28" rx="14" fill="#0F1115"/>
+      <text x="537" y="56" font-size="13" font-weight="600" fill="#FFFFFF" text-anchor="middle">Azure DevOps</text>
+    </g>
+    <!-- Title -->
+    <g font-family="Inter, system-ui, sans-serif">
+      <text x="36" y="108" font-size="26" font-weight="700" fill="#111827">Hero — onboarding step 2</text>
+    </g>
+    <!-- Thumbnail block -->
+    <rect x="36" y="138" width="548" height="180" rx="10" fill="#F3F4F6" stroke="#E5E7EB" stroke-width="1"/>
+    <!-- Mini frame illustration inside thumbnail -->
+    <g transform="translate(56,158)">
+      <rect x="0" y="0" width="508" height="140" rx="6" fill="#FFFFFF" stroke="#E5E7EB"/>
+      <rect x="16" y="14" width="90" height="10" rx="3" fill="#D1D5DB"/>
+      <rect x="16" y="32" width="60" height="8" rx="3" fill="#E5E7EB"/>
+      <circle cx="56" cy="92" r="22" fill="#18A0FB" fill-opacity="0.18" stroke="#18A0FB" stroke-opacity="0.6" stroke-width="1.5"/>
+      <rect x="92" y="80" width="180" height="10" rx="3" fill="#D1D5DB"/>
+      <rect x="92" y="98" width="140" height="8" rx="3" fill="#E5E7EB"/>
+      <rect x="320" y="60" width="170" height="64" rx="6" fill="#F9FAFB" stroke="#E5E7EB"/>
+    </g>
+    <!-- Field rows -->
+    <g font-family="Inter, system-ui, sans-serif" fill="#374151">
+      <text x="36" y="358" font-size="13" font-weight="600" fill="#6B7280">TYPE</text>
+      <text x="36" y="380" font-size="16" font-weight="500">Bug</text>
+      <text x="220" y="358" font-size="13" font-weight="600" fill="#6B7280">PRIORITY</text>
+      <text x="220" y="380" font-size="16" font-weight="500">P2</text>
+      <text x="380" y="358" font-size="13" font-weight="600" fill="#6B7280">ASSIGNEE</text>
+      <text x="380" y="380" font-size="16" font-weight="500">@sanjay</text>
+    </g>
+    <!-- Figma frame link callout -->
+    <g transform="translate(36,406)">
+      <rect x="0" y="0" width="548" height="56" rx="10" fill="#EFF6FF" stroke="#BFDBFE"/>
+      <circle cx="28" cy="28" r="10" fill="#18A0FB"/>
+      <text x="52" y="34" font-family="Inter, system-ui, sans-serif" font-size="14" fill="#1E40AF">
+        <tspan font-weight="600">Figma frame:</tspan>
+        <tspan dx="6" fill="#1D4ED8">figma.com/file/abc?node-id=1:2</tspan>
+      </text>
+    </g>
+  </g>
+
+  <!-- Bottom band: name + tagline -->
+  <g font-family="Inter, system-ui, sans-serif" text-anchor="middle">
+    <text x="960" y="900" font-size="64" font-weight="700" fill="#FFFFFF" letter-spacing="-0.5">Tickets</text>
+    <text x="960" y="956" font-size="26" font-weight="400" fill="#FFFFFF" fill-opacity="0.7">
+      Turn any frame into a Notion or Azure DevOps ticket.
+    </text>
+  </g>
+</svg>

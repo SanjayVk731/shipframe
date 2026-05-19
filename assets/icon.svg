@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Tickets plugin icon">
+  <defs>
+    <linearGradient id="iconBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0F1115"/>
+      <stop offset="100%" stop-color="#1F2433"/>
+    </linearGradient>
+  </defs>
+  <!-- Rounded square background -->
+  <rect width="128" height="128" rx="28" fill="url(#iconBg)"/>
+  <!-- Ticket shape with two notches -->
+  <g transform="translate(24,38)">
+    <!-- Card body -->
+    <path d="
+      M 6 0
+      H 74
+      Q 80 0 80 6
+      V 18
+      A 8 8 0 0 0 80 34
+      V 46
+      Q 80 52 74 52
+      H 6
+      Q 0 52 0 46
+      V 34
+      A 8 8 0 0 0 0 18
+      V 6
+      Q 0 0 6 0 Z"
+      fill="#FFFFFF"/>
+    <!-- Perforation -->
+    <line x1="48" y1="6" x2="48" y2="46" stroke="#0F1115" stroke-width="2" stroke-dasharray="3 4" stroke-linecap="round"/>
+    <!-- Small dot (frame marker) on left half -->
+    <circle cx="20" cy="26" r="6" fill="#18A0FB"/>
+    <!-- Lines on right half -->
+    <rect x="56" y="18" width="16" height="4" rx="2" fill="#0F1115" fill-opacity="0.8"/>
+    <rect x="56" y="28" width="20" height="4" rx="2" fill="#0F1115" fill-opacity="0.5"/>
+  </g>
+</svg>
