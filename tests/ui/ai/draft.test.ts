@@ -1,0 +1,179 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { draftFromContext } from '../../../src/ui/ai/draft'
+import { installFetch, jsonResponse } from '../../helpers/fetchMock'
+import type { FrameContext } from '../../../src/shared/types'
+
+const ctx: FrameContext = {
+  frameName: 'Login',
+  workItemType: 'Bug',
+  annotations: ['Submit broken'],
+  textLayers: ['Sign in'],
+}
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+
+describe('draftFromContext (Anthropic)', () => {
+  it('returns parsed JSON on 200 happy path', async () => {
+    installFetch([
+      {
+        matches: (url) => url.includes('api.anthropic.com'),
+        response: () =>
+          jsonResponse(200, {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify({
+                  title: 'T',
+                  main: 'M',
+                  reproSteps: 'R',
+                  expected: 'E',
+                  actual: 'A',
+                }),
+              },
+            ],
+          }),
+      },
+    ])
+    const r = await draftFromContext(ctx, { provider: 'anthropic', key: 'k' })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.title).toBe('T')
+    expect(r.value.acceptanceCriteria).toBeUndefined() // Bug → AC dropped
+  })
+
+  it('sets the dangerous-direct-browser-access header', async () => {
+    let capturedInit: RequestInit | undefined
+    installFetch([
+      {
+        matches: (url, init) => {
+          if (url.includes('api.anthropic.com')) {
+            capturedInit = init
+            return true
+          }
+          return false
+        },
+        response: () => jsonResponse(200, { content: [{ type: 'text', text: '{}' }] }),
+      },
+    ])
+    await draftFromContext(ctx, { provider: 'anthropic', key: 'k' })
+    const headers = capturedInit?.headers as Record<string, string> | undefined
+    expect(headers?.['anthropic-dangerous-direct-browser-access']).toBe('true')
+    expect(headers?.['anthropic-version']).toBe('2023-06-01')
+    expect(headers?.['x-api-key']).toBe('k')
+  })
+
+  it('returns auth_failed on 401', async () => {
+    installFetch([
+      { matches: () => true, response: () => jsonResponse(401, { error: 'bad key' }) },
+    ])
+    const r = await draftFromContext(ctx, { provider: 'anthropic', key: 'k' })
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.reason).toBe('auth_failed')
+  })
+
+  it('returns rate_limited on 429', async () => {
+    installFetch([{ matches: () => true, response: () => jsonResponse(429, {}) }])
+    const r = await draftFromContext(ctx, { provider: 'anthropic', key: 'k' })
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.reason).toBe('rate_limited')
+  })
+
+  it('returns server_error on 500', async () => {
+    installFetch([{ matches: () => true, response: () => jsonResponse(500, {}) }])
+    const r = await draftFromContext(ctx, { provider: 'anthropic', key: 'k' })
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.reason).toBe('server_error')
+  })
+
+  it('returns network_error when fetch throws', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('boom')
+      }),
+    )
+    const r = await draftFromContext(ctx, { provider: 'anthropic', key: 'k' })
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.reason).toBe('network_error')
+  })
+
+  it('retries once on malformed JSON, then succeeds', async () => {
+    let call = 0
+    installFetch([
+      {
+        matches: (url) => url.includes('api.anthropic.com'),
+        response: () => {
+          call += 1
+          if (call === 1) {
+            return jsonResponse(200, { content: [{ type: 'text', text: 'not json' }] })
+          }
+          return jsonResponse(200, {
+            content: [{ type: 'text', text: '{"title":"T"}' }],
+          })
+        },
+      },
+    ])
+    const r = await draftFromContext(ctx, { provider: 'anthropic', key: 'k' })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.title).toBe('T')
+    expect(call).toBe(2)
+  })
+
+  it('returns unknown reason after retry still malformed', async () => {
+    installFetch([
+      {
+        matches: () => true,
+        response: () => jsonResponse(200, { content: [{ type: 'text', text: 'not json' }] }),
+      },
+    ])
+    const r = await draftFromContext(ctx, { provider: 'anthropic', key: 'k' })
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.reason).toBe('unknown')
+  })
+})
+
+describe('draftFromContext (OpenAI)', () => {
+  it('uses Authorization: Bearer header', async () => {
+    let capturedInit: RequestInit | undefined
+    installFetch([
+      {
+        matches: (url, init) => {
+          if (url.includes('api.openai.com')) {
+            capturedInit = init
+            return true
+          }
+          return false
+        },
+        response: () =>
+          jsonResponse(200, {
+            choices: [{ message: { content: '{"title":"T"}' } }],
+          }),
+      },
+    ])
+    await draftFromContext(ctx, { provider: 'openai', key: 'k' })
+    const headers = capturedInit?.headers as Record<string, string> | undefined
+    expect(headers?.['authorization']).toBe('Bearer k')
+  })
+
+  it('returns parsed JSON on 200 happy path', async () => {
+    installFetch([
+      {
+        matches: (url) => url.includes('api.openai.com'),
+        response: () =>
+          jsonResponse(200, {
+            choices: [{ message: { content: '{"title":"T","main":"M"}' } }],
+          }),
+      },
+    ])
+    const r = await draftFromContext(ctx, { provider: 'openai', key: 'k' })
+    expect(r.ok && r.value.title).toBe('T')
+  })
+})
