@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { classifySelection } from '../../src/sandbox/selection'
+import { classifySelection, exportThumbnail } from '../../src/sandbox/selection'
 
 function n(type: string, overrides: Partial<SceneNode> = {}): SceneNode {
   return {
@@ -63,5 +63,49 @@ describe('classifySelection', () => {
     } as Partial<SceneNode>)
     const s = classifySelection([node])
     if (s.kind === 'single') expect(s.link).toEqual(link)
+  })
+})
+
+describe('exportThumbnail', () => {
+  function exportableNode(width: number, height: number) {
+    const exportAsync = vi.fn(async () => new Uint8Array([1, 2, 3]))
+    const node = {
+      id: '1:1',
+      name: 'n',
+      type: 'FRAME',
+      width,
+      height,
+      getPluginData: vi.fn(() => ''),
+      setPluginData: vi.fn(),
+      exportAsync,
+    }
+    return { node: node as unknown as SceneNode, exportAsync }
+  }
+
+  it('uses scale 2 for small nodes', async () => {
+    const { node, exportAsync } = exportableNode(800, 600)
+    await exportThumbnail(node)
+    expect(exportAsync).toHaveBeenCalledWith({
+      format: 'PNG',
+      constraint: { type: 'SCALE', value: 2 },
+    })
+  })
+
+  it('caps oversized nodes at 2048 longest edge', async () => {
+    const { node, exportAsync } = exportableNode(4096, 1024)
+    await exportThumbnail(node)
+    expect(exportAsync).toHaveBeenCalledWith({
+      format: 'PNG',
+      constraint: { type: 'SCALE', value: 2048 / 4096 },
+    })
+  })
+
+  it('handles height-dominant oversized nodes', async () => {
+    const { node, exportAsync } = exportableNode(500, 5000)
+    await exportThumbnail(node)
+    expect(exportAsync).toHaveBeenCalledWith({
+      format: 'PNG',
+      constraint: { type: 'SCALE', value: 2048 / 5000 },
+    })
   })
 })
