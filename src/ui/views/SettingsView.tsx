@@ -1,6 +1,7 @@
-import React, { useId, useState } from 'react'
+import React, { useState } from 'react'
 import { Button } from '../components/Button'
 import { ErrorBanner } from '../components/ErrorBanner'
+import { Input } from '../components/Input'
 import type { Board, FileConfig, ProviderId } from '../../shared/types'
 import type { Result } from '../../providers/types'
 
@@ -35,7 +36,6 @@ export function SettingsView({
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [boards, setBoards] = useState<Board[]>([])
   const [boardId, setBoardId] = useState<string>('')
-  const patInputId = useId()
 
   async function onTest() {
     if (!providerId || !pat) return
@@ -100,20 +100,17 @@ export function SettingsView({
         </label>
       </fieldset>
 
-      <div className="field">
-        <label htmlFor={patInputId}>
-          {providerId === 'azure'
+      <Input
+        label={
+          providerId === 'azure'
             ? 'Personal access token (format: org|token)'
-            : 'Personal access token'}
-        </label>
-        <input
-          id={patInputId}
-          type="password"
-          value={pat}
-          placeholder={providerId === 'azure' ? 'myorg|abcd…' : 'secret_…'}
-          onChange={(e) => setPat(e.target.value)}
-        />
-      </div>
+            : 'Personal access token'
+        }
+        value={pat}
+        onChange={setPat}
+        type="password"
+        placeholder={providerId === 'azure' ? 'myorg|abcd…' : 'secret_…'}
+      />
 
       <div className="row">
         <Button variant="primary" disabled={!canTest} onClick={onTest}>

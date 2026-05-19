@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useId } from 'react'
 
 interface Props {
   label: string
@@ -10,17 +10,20 @@ interface Props {
 }
 
 export function Input({ label, value, onChange, type = 'text', placeholder, multiline }: Props) {
+  const id = useId()
   return (
     <div className="field">
-      <label>{label}</label>
+      <label htmlFor={id}>{label}</label>
       {multiline ? (
         <textarea
+          id={id}
           value={value}
           placeholder={placeholder}
           onChange={(e) => onChange(e.target.value)}
         />
       ) : (
         <input
+          id={id}
           type={type}
           value={value}
           placeholder={placeholder}
