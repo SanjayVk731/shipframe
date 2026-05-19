@@ -58,6 +58,27 @@ export async function collectFrameContext(
     textLayers.push(`…and ${truncatedTextCount} more text nodes truncated`)
   }
 
+  // Total-char cap across collected text layers.
+  let totalChars = 0
+  let cappedTextLayers: string[] = []
+  let droppedChars = 0
+  for (const layer of textLayers) {
+    if (layer.startsWith('…and ')) {
+      cappedTextLayers.push(layer)
+      continue
+    }
+    if (totalChars + layer.length > FRAME_CONTEXT_LIMITS.maxTotalChars) {
+      droppedChars += layer.length
+      continue
+    }
+    cappedTextLayers.push(layer)
+    totalChars += layer.length
+  }
+  if (droppedChars > 0) {
+    cappedTextLayers = cappedTextLayers.filter((l) => !l.startsWith('…and '))
+    cappedTextLayers.push(`…and ${droppedChars} more chars truncated`)
+  }
+
   const annotations = (root.annotations ?? [])
     .slice(0, FRAME_CONTEXT_LIMITS.maxAnnotations)
     .map((a) => a.label)
@@ -68,7 +89,7 @@ export async function collectFrameContext(
       frameName: root.name,
       workItemType,
       annotations,
-      textLayers,
+      textLayers: cappedTextLayers,
     },
   }
 }
