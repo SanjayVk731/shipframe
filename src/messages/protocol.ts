@@ -19,6 +19,7 @@ export type UiToSandbox =
   | { type: 'set-file-config'; config: FileConfig; requestId: string }
   | { type: 'get-pat'; providerId: ProviderId; requestId: string }
   | { type: 'set-pat'; providerId: ProviderId; pat: string; requestId: string }
+  | { type: 'focus-node'; nodeId: string; requestId: string }
   | { type: 'open-external'; url: string }
 
 export type SandboxToUi =
@@ -44,6 +45,7 @@ const UI_TYPES = new Set<UiToSandbox['type']>([
   'set-file-config',
   'get-pat',
   'set-pat',
+  'focus-node',
   'open-external',
 ])
 

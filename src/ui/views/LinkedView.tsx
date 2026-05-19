@@ -5,6 +5,7 @@ import type { TicketLink } from '../../shared/types'
 interface Props {
   link: TicketLink
   onOpen: (url: string) => void
+  onFocus: () => void
   onUnlink: () => void
 }
 
@@ -12,7 +13,7 @@ function providerLabel(id: TicketLink['providerId']): string {
   return id === 'notion' ? 'Notion' : 'Azure DevOps'
 }
 
-export function LinkedView({ link, onOpen, onUnlink }: Props) {
+export function LinkedView({ link, onOpen, onFocus, onUnlink }: Props) {
   const [confirming, setConfirming] = useState(false)
   return (
     <div>
@@ -24,6 +25,9 @@ export function LinkedView({ link, onOpen, onUnlink }: Props) {
         <Button variant="primary" onClick={() => onOpen(link.url)}>
           Open ticket
         </Button>
+        <Button onClick={onFocus}>Focus in Figma</Button>
+      </div>
+      <div className="row" style={{ marginTop: 8 }}>
         {!confirming ? (
           <Button onClick={() => setConfirming(true)}>Unlink</Button>
         ) : (

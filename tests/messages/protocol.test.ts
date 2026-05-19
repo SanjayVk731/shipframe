@@ -38,6 +38,7 @@ describe('protocol guards', () => {
       | 'set-file-config'
       | 'get-pat'
       | 'set-pat'
+      | 'focus-node'
       | 'open-external'
     >()
   })

@@ -111,6 +111,17 @@ figma.ui.onmessage = async (raw: unknown) => {
         post({ type: 'ack', requestId: msg.requestId })
         return
       }
+      case 'focus-node': {
+        const node = await findNode(msg.nodeId)
+        if (!node) {
+          post({ type: 'error', reason: 'not_found', requestId: msg.requestId })
+          return
+        }
+        figma.currentPage.selection = [node]
+        figma.viewport.scrollAndZoomIntoView([node])
+        post({ type: 'ack', requestId: msg.requestId })
+        return
+      }
       case 'open-external': {
         figma.openExternal(msg.url)
         return

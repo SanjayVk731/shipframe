@@ -104,6 +104,14 @@ export function App() {
     [sandbox],
   )
 
+  const onFocusNode = useCallback(() => {
+    if (sandbox.selection.kind !== 'single') return
+    void sandbox.request({
+      type: 'focus-node',
+      nodeId: sandbox.selection.nodeId,
+    })
+  }, [sandbox])
+
   const onCreate = useCallback(
     async (input: TicketInput): Promise<Result<unknown>> => {
       if (!fileConfig) return { ok: false, reason: 'unknown', status: 0 }
@@ -196,6 +204,7 @@ export function App() {
       <LinkedView
         link={sandbox.selection.link}
         onOpen={onOpenTicket}
+        onFocus={onFocusNode}
         onUnlink={onUnlink}
       />
     )
