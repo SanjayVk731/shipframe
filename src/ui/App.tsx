@@ -54,6 +54,9 @@ export function App() {
   // Set to the just-created ticket id when its thumbnail upload failed, so
   // LinkedView can show a "thumbnail not attached" warning.
   const [attachmentFailedId, setAttachmentFailedId] = useState<string | null>(null)
+  // Set to the just-created ticket id when the post-create annotation sync
+  // failed, so LinkedView can show a "pin couldn't be added" warning.
+  const [pinFailedId, setPinFailedId] = useState<string | null>(null)
 
   const [aiProvider, setAiProvider] = useState<'anthropic' | 'openai' | 'off'>('off')
   const [aiKey, setAiKey] = useState('')
@@ -90,6 +93,7 @@ export function App() {
   useEffect(() => {
     setJustCreatedId(null)
     setAttachmentFailedId(null)
+    setPinFailedId(null)
   }, [selectedNodeId])
 
   // React to selection changes when configured.
@@ -113,6 +117,29 @@ export function App() {
       cancelled = true
     }
   }, [sandbox.selection, fileConfig, sandbox])
+
+  // Reconcile annotation on every selection of a linked frame. syncAnnotation
+  // is idempotent — it noops when the label is already correct. Self-heals if
+  // the designer manually deleted the pin.
+  useEffect(() => {
+    if (sandbox.selection.kind !== 'single' || sandbox.selection.link === null) return
+    const link = sandbox.selection.link
+    const nodeId = sandbox.selection.nodeId
+    // Title isn't stored on TicketLink. For Azure label = AZURE-<id> (title is
+    // ignored). For Notion the label includes a (possibly stale) title — use
+    // node name as a stable proxy.
+    const title = sandbox.selection.nodeName
+    void sandbox.request({
+      type: 'sync-annotation',
+      nodeId,
+      providerId: link.providerId,
+      ticketId: link.id,
+      title,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    sandbox.selection.kind === 'single' ? sandbox.selection.nodeId : null,
+  ])
 
   const onSaveSettings = useCallback(
     (payload: { providerId: ProviderId; pat: string; config: FileConfig }) => {
@@ -206,10 +233,20 @@ export function App() {
           nodeId: sandbox.selection.nodeId,
           link,
         })
+        // Sync annotation immediately after writing the ticket link. Non-blocking
+        // — a failure only sets pinFailedId so LinkedView can warn the user.
+        const syncRes = await sandbox.request({
+          type: 'sync-annotation',
+          nodeId: sandbox.selection.nodeId,
+          providerId: fileConfig.providerId,
+          ticketId: link.id,
+          title: input.title,
+        })
         // Mark this link as "just created" BEFORE refreshing selection so the
         // success banner is visible on the very first LinkedView render.
         setJustCreatedId(link.id)
         setAttachmentFailedId(attachmentOk ? null : link.id)
+        setPinFailedId(syncRes.type === 'error' ? link.id : null)
         // pluginData writes don't fire selectionchange — refresh manually so
         // the UI flips from CreateView to LinkedView.
         await sandbox.request({ type: 'get-selection-state' })
@@ -282,6 +319,7 @@ export function App() {
         link={sandbox.selection.link}
         justCreated={justCreatedId === sandbox.selection.link.id}
         attachmentFailed={attachmentFailedId === sandbox.selection.link.id}
+        pinFailed={pinFailedId === sandbox.selection.link.id}
         onOpen={onOpenTicket}
         onFocus={onFocusNode}
         onUnlink={onUnlink}

@@ -9,6 +9,8 @@ interface Props {
   justCreated?: boolean
   /** Shown alongside the success banner when the thumbnail upload failed. */
   attachmentFailed?: boolean
+  /** Show "pin couldn't be added" warning. */
+  pinFailed?: boolean
   onOpen: (url: string) => void
   onFocus: () => void
   onUnlink: () => void
@@ -23,6 +25,7 @@ export function LinkedView({
   link,
   justCreated = false,
   attachmentFailed = false,
+  pinFailed = false,
   onOpen,
   onFocus,
   onUnlink,
@@ -43,6 +46,11 @@ export function LinkedView({
       {justCreated && attachmentFailed && (
         <div className="warning-banner" role="alert">
           Thumbnail couldn't be attached. The ticket was created without it.
+        </div>
+      )}
+      {justCreated && pinFailed && (
+        <div className="warning-banner" role="alert">
+          Pin couldn't be added to the frame. The ticket was created.
         </div>
       )}
       <p>
