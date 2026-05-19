@@ -13,5 +13,5 @@ export function getProvider(id: ProviderId): TicketProvider {
 }
 
 export function listProviders(): TicketProvider[] {
-  return [providers.notion, providers.azure]
+  return Object.values(providers)
 }
