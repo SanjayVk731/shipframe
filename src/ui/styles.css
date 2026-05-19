@@ -5,13 +5,32 @@
   background: var(--figma-color-bg, #fff);
 }
 body { margin: 0; padding: 12px; }
+h2 { font-size: 14px; font-weight: 700; margin: 0 0 12px; }
 .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
-.field > label { font-weight: 600; }
+.field > label { font-weight: 600; font-size: 11px; opacity: 0.85; }
 .row { display: flex; gap: 8px; align-items: center; }
-.btn { padding: 6px 10px; border-radius: 6px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
+.btn { padding: 6px 10px; border-radius: 6px; border: 1px solid var(--figma-color-border, #ccc); background: var(--figma-color-bg, #fff); color: inherit; cursor: pointer; font: inherit; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary { background: #18a0fb; color: #fff; border-color: #18a0fb; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .banner { background: #fdecea; color: #b3261e; border: 1px solid #f4b3ad; padding: 8px; border-radius: 6px; margin-bottom: 10px; }
-.thumb { width: 100%; max-height: 180px; object-fit: contain; border: 1px solid #eee; border-radius: 6px; }
-input, select, textarea { width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+.thumb { width: 100%; max-height: 180px; object-fit: contain; border: 1px solid var(--figma-color-border, #eee); border-radius: 6px; background: var(--figma-color-bg-secondary, #f5f5f5); }
+
+/* text-style inputs span the field; radios/checkboxes do not */
+input[type="text"], input[type="password"], input[type="email"], select, textarea {
+  width: 100%;
+  padding: 6px;
+  border: 1px solid var(--figma-color-border, #ccc);
+  border-radius: 6px;
+  box-sizing: border-box;
+  background: var(--figma-color-bg, #fff);
+  color: inherit;
+  font: inherit;
+}
 textarea { min-height: 80px; resize: vertical; }
+
+/* Provider radio group */
+.radio-group { display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--figma-color-border, #444); border-radius: 6px; padding: 8px 10px; margin: 0 0 10px; }
+.radio-group legend { padding: 0 4px; font-weight: 600; font-size: 11px; opacity: 0.85; }
+.radio-row { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500; }
+.radio-row input[type="radio"] { width: auto; margin: 0; cursor: pointer; }

@@ -41,21 +41,26 @@ export function SettingsView({
     if (!providerId || !pat) return
     setPhase('testing')
     setErrorMessage(null)
-    const auth = await testAuth(providerId, pat)
-    if (!auth.ok) {
+    try {
+      const auth = await testAuth(providerId, pat)
+      if (!auth.ok) {
+        setPhase('error')
+        setErrorMessage(reasonToMessage(auth.reason))
+        return
+      }
+      const boardsRes = await listBoards(providerId, pat)
+      if (!boardsRes.ok) {
+        setPhase('error')
+        setErrorMessage(reasonToMessage(boardsRes.reason))
+        return
+      }
+      setBoards(boardsRes.value)
+      setBoardId(boardsRes.value[0]?.id ?? '')
+      setPhase('loaded')
+    } catch (e) {
       setPhase('error')
-      setErrorMessage(reasonToMessage(auth.reason))
-      return
+      setErrorMessage(e instanceof Error ? e.message : 'Something went wrong.')
     }
-    const boardsRes = await listBoards(providerId, pat)
-    if (!boardsRes.ok) {
-      setPhase('error')
-      setErrorMessage(reasonToMessage(boardsRes.reason))
-      return
-    }
-    setBoards(boardsRes.value)
-    setBoardId(boardsRes.value[0]?.id ?? '')
-    setPhase('loaded')
   }
 
   function onClickSave() {
@@ -76,9 +81,9 @@ export function SettingsView({
       <h2>Settings</h2>
       {errorMessage && <ErrorBanner message={errorMessage} />}
 
-      <fieldset className="field">
+      <fieldset className="radio-group">
         <legend>Provider</legend>
-        <label>
+        <label className="radio-row">
           <input
             type="radio"
             name="provider"
@@ -88,7 +93,7 @@ export function SettingsView({
           />
           Notion
         </label>
-        <label>
+        <label className="radio-row">
           <input
             type="radio"
             name="provider"
