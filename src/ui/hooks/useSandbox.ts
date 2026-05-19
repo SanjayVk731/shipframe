@@ -31,9 +31,10 @@ export function useSandbox(): UseSandboxApi {
       const raw = (event.data as { pluginMessage?: unknown })?.pluginMessage
       if (!isSandboxToUi(raw)) return
       const msg = raw as SandboxToUi
-      if (msg.type === 'selection-changed') {
+      // Both pushed `selection-changed` events and explicit `selection-state`
+      // responses carry the latest selection — keep local state in sync with both.
+      if (msg.type === 'selection-changed' || msg.type === 'selection-state') {
         setSelection(msg.state)
-        return
       }
       if ('requestId' in msg) {
         const resolve = pending.current.get(msg.requestId)

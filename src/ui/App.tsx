@@ -94,12 +94,15 @@ export function App() {
     [sandbox],
   )
 
-  const onUnlink = useCallback(() => {
+  const onUnlink = useCallback(async () => {
     if (sandbox.selection.kind !== 'single') return
-    void sandbox.request({
+    await sandbox.request({
       type: 'clear-ticket-link',
       nodeId: sandbox.selection.nodeId,
     })
+    // pluginData writes don't fire selectionchange — refresh manually so the
+    // UI flips from LinkedView back to CreateView.
+    await sandbox.request({ type: 'get-selection-state' })
   }, [sandbox])
 
   const onOpenTicket = useCallback(
