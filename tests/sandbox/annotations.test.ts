@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isOursLabel } from '../../src/sandbox/annotations'
+import { isOursLabel, buildLabel } from '../../src/sandbox/annotations'
 
 describe('isOursLabel', () => {
   it('matches Azure ticket labels', () => {
@@ -19,5 +19,52 @@ describe('isOursLabel', () => {
     expect(isOursLabel('Notion · short id · #1234')).toBe(false)
     expect(isOursLabel('arbitrary user annotation')).toBe(false)
     expect(isOursLabel('')).toBe(false)
+  })
+})
+
+describe('buildLabel', () => {
+  it('builds Azure label from numeric id', () => {
+    expect(
+      buildLabel({ providerId: 'azure', ticketId: '1234', title: 'Anything' }),
+    ).toBe('AZURE-1234')
+  })
+
+  it('builds Notion label with title and 8-char short id', () => {
+    expect(
+      buildLabel({
+        providerId: 'notion',
+        ticketId: 'abcd1234-ef56-7890-abcd-ef1234567890',
+        title: 'Login bug',
+      }),
+    ).toBe('Notion · Login bug · #34567890')
+  })
+
+  it('truncates long titles at 60 chars with ellipsis', () => {
+    const longTitle = 'a'.repeat(80)
+    const label = buildLabel({
+      providerId: 'notion',
+      ticketId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0000',
+      title: longTitle,
+    })
+    expect(label.startsWith('Notion · ' + 'a'.repeat(59) + '…')).toBe(true)
+    expect(label.endsWith(' · #eeee0000')).toBe(true)
+    expect(label).toMatch(/^Notion · a{59}… · #[0-9a-f]{8}$/)
+  })
+
+  it('round-trips: any label produced by buildLabel is recognised by isOursLabel', () => {
+    expect(
+      isOursLabel(
+        buildLabel({ providerId: 'azure', ticketId: '42', title: 'x' }),
+      ),
+    ).toBe(true)
+    expect(
+      isOursLabel(
+        buildLabel({
+          providerId: 'notion',
+          ticketId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeffff',
+          title: 'x',
+        }),
+      ),
+    ).toBe(true)
   })
 })
