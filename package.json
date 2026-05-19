@@ -1,7 +1,13 @@
 {
-  "name": "figma-tickets",
+  "name": "shipframe",
   "version": "0.1.0",
   "private": true,
+  "description": "Create Notion or Azure DevOps tickets from a selected frame in Figma.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SanjayVk731/shipframe.git"
+  },
   "scripts": {
     "build": "BUILD_TARGET=ui vite build && BUILD_TARGET=sandbox vite build",
     "dev": "vite build --watch",

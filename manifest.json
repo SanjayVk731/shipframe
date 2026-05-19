@@ -1,6 +1,6 @@
 {
-  "name": "Tickets",
-  "id": "figma-tickets-local-dev",
+  "name": "Shipframe",
+  "id": "shipframe-local-dev",
   "api": "1.0.0",
   "main": "dist/code.js",
   "ui": "dist/index.html",

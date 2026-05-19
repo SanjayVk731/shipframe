@@ -1,6 +1,8 @@
-# Figma Tickets
+# Shipframe
 
 Create Notion or Azure DevOps tickets from a selected frame in Figma.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## Develop
 
