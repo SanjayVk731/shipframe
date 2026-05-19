@@ -8,7 +8,7 @@ export interface OpenAiCallInput {
   userPrompt: string
 }
 
-const URL = 'https://api.openai.com/v1/chat/completions'
+const ENDPOINT = 'https://api.openai.com/v1/chat/completions'
 const MODEL = 'gpt-4o-mini'
 const MAX_TOKENS = 2048
 
@@ -17,7 +17,7 @@ export async function callOpenAI(
 ): Promise<Result<string>> {
   return tryRequest<string>(
     () =>
-      fetch(URL, {
+      fetch(ENDPOINT, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',

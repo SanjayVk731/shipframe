@@ -8,7 +8,7 @@ export interface AnthropicCallInput {
   userPrompt: string
 }
 
-const URL = 'https://api.anthropic.com/v1/messages'
+const ENDPOINT = 'https://api.anthropic.com/v1/messages'
 const MODEL = 'claude-haiku-4-5-20251001'
 const MAX_TOKENS = 2048
 
@@ -17,7 +17,7 @@ export async function callAnthropic(
 ): Promise<Result<string>> {
   return tryRequest<string>(
     () =>
-      fetch(URL, {
+      fetch(ENDPOINT, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
