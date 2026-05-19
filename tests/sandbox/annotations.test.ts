@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { isOursLabel, buildLabel } from '../../src/sandbox/annotations'
+import { isOursLabel, buildLabel, syncAnnotation } from '../../src/sandbox/annotations'
+import { installFigmaMock } from '../helpers/figmaMock'
 
 describe('isOursLabel', () => {
   it('matches Azure ticket labels', () => {
@@ -66,5 +67,81 @@ describe('buildLabel', () => {
         }),
       ),
     ).toBe(true)
+  })
+})
+
+describe('syncAnnotation', () => {
+  it('creates annotation when none of ours exist', async () => {
+    const { makeNode } = installFigmaMock()
+    const node = makeNode('1:2', 'FRAME', 'Login')
+    const result = await syncAnnotation('1:2', {
+      providerId: 'azure',
+      ticketId: '1234',
+      title: 'irrelevant',
+    })
+    expect(result).toEqual({ ok: true })
+    expect(node.annotations).toEqual([{ label: 'AZURE-1234', categoryId: 'azure' }])
+  })
+
+  it('is a noop when matching annotation already exists', async () => {
+    const { makeNode } = installFigmaMock()
+    const node = makeNode('1:2', 'FRAME', 'Login')
+    node.annotations = [{ label: 'AZURE-1234', categoryId: 'azure' }]
+    const before = node.annotations
+    const result = await syncAnnotation('1:2', {
+      providerId: 'azure',
+      ticketId: '1234',
+      title: 'irrelevant',
+    })
+    expect(result).toEqual({ ok: true })
+    expect(node.annotations).toEqual([{ label: 'AZURE-1234', categoryId: 'azure' }])
+    expect(node.annotations).toBe(before)
+  })
+
+  it('updates label when ours exists with drifted label', async () => {
+    const { makeNode } = installFigmaMock()
+    const node = makeNode('1:2', 'FRAME', 'Login')
+    node.annotations = [
+      { label: 'AZURE-9999', categoryId: 'azure' },
+    ]
+    await syncAnnotation('1:2', {
+      providerId: 'azure',
+      ticketId: '1234',
+      title: 'irrelevant',
+    })
+    expect(node.annotations).toEqual([{ label: 'AZURE-1234', categoryId: 'azure' }])
+  })
+
+  it('preserves manual annotations (non-ours)', async () => {
+    const { makeNode } = installFigmaMock()
+    const node = makeNode('1:2', 'FRAME', 'Login')
+    node.annotations = [
+      { label: 'Designer note: align padding', categoryId: 'general' },
+    ]
+    await syncAnnotation('1:2', {
+      providerId: 'azure',
+      ticketId: '1234',
+      title: 'irrelevant',
+    })
+    expect(node.annotations).toEqual([
+      { label: 'Designer note: align padding', categoryId: 'general' },
+      { label: 'AZURE-1234', categoryId: 'azure' },
+    ])
+  })
+
+  it('removes duplicate ours-pins, keeps first match of target label', async () => {
+    const { makeNode } = installFigmaMock()
+    const node = makeNode('1:2', 'FRAME', 'Login')
+    node.annotations = [
+      { label: 'AZURE-1234', categoryId: 'azure' },
+      { label: 'AZURE-1234', categoryId: 'azure' },
+      { label: 'AZURE-5555', categoryId: 'azure' },
+    ]
+    await syncAnnotation('1:2', {
+      providerId: 'azure',
+      ticketId: '1234',
+      title: 'irrelevant',
+    })
+    expect(node.annotations).toEqual([{ label: 'AZURE-1234', categoryId: 'azure' }])
   })
 })
