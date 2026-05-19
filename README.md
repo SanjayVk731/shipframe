@@ -34,7 +34,7 @@ npm run typecheck
 ### Azure DevOps
 1. Create a Personal Access Token at https://dev.azure.com/{org}/_usersSettings/tokens with **Work Items (Read & write)** scope.
 2. In the plugin Settings, paste the PAT in the format `org|token` (e.g. `myorg|abc123...`).
-3. Pick the project / team / work item type combo.
+3. Pick the **project / work item type** combo. Work item types are the defaults across Agile/Scrum/Basic templates: Bug, Task, User Story, Feature, Epic. (Team is not required — work items are created at the project root.)
 
 ## Manual QA checklist before release
 

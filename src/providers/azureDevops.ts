@@ -15,15 +15,16 @@ function parsePat(combined: string): { org: string; token: string } {
 function parseBoardId(boardId: string): {
   org: string
   project: string
-  team: string
   workItemType: string
 } {
-  const [org, project, team, workItemType] = boardId.split('|')
-  if (!org || !project || !team || !workItemType) {
+  const [org, project, workItemType] = boardId.split('|')
+  if (!org || !project || !workItemType) {
     throw new Error(`invalid azure boardId: ${boardId}`)
   }
-  return { org, project, team, workItemType }
+  return { org, project, workItemType }
 }
+
+const DEFAULT_WORK_ITEM_TYPES = ['Bug', 'Task', 'User Story', 'Feature', 'Epic']
 
 function authHeader(token: string): string {
   return 'Basic ' + btoa(':' + token)
@@ -52,6 +53,10 @@ export const azureProvider: TicketProvider = {
   },
 
   async listBoards(combined) {
+    // Azure DevOps's /_apis/teams and /_apis/wit/workitemtypes endpoints don't send
+    // CORS headers for origin 'null' (Figma plugin iframe). We list projects (which
+    // does work via CORS) and expand each one against a fixed set of common work item
+    // types from the default Agile/Scrum/Basic process templates.
     const { org, token } = parsePat(combined)
     const projectsRes = await tryRequest<{
       value: Array<{ id: string; name: string }>
@@ -64,30 +69,11 @@ export const azureProvider: TicketProvider = {
 
     const boards: Array<{ id: string; label: string }> = []
     for (const project of projectsRes.value.value) {
-      const teamsRes = await tryRequest<{
-        value: Array<{ id: string; name: string }>
-      }>(() =>
-        fetch(
-          `https://dev.azure.com/${org}/${project.name}/_apis/teams?${API_VERSION}`,
-          { headers: { Authorization: authHeader(token) } },
-        ),
-      )
-      if (!teamsRes.ok) return teamsRes
-      const typesRes = await tryRequest<{ value: Array<{ name: string }> }>(
-        () =>
-          fetch(
-            `https://dev.azure.com/${org}/${project.name}/_apis/wit/workitemtypes?${API_VERSION}`,
-            { headers: { Authorization: authHeader(token) } },
-          ),
-      )
-      if (!typesRes.ok) return typesRes
-      for (const team of teamsRes.value.value) {
-        for (const wit of typesRes.value.value) {
-          boards.push({
-            id: `${org}|${project.name}|${team.name}|${wit.name}`,
-            label: `${project.name} / ${team.name} / ${wit.name}`,
-          })
-        }
+      for (const wit of DEFAULT_WORK_ITEM_TYPES) {
+        boards.push({
+          id: `${org}|${project.name}|${wit}`,
+          label: `${project.name} / ${wit}`,
+        })
       }
     }
     return { ok: true, status: projectsRes.status, value: boards }

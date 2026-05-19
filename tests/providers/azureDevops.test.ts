@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { azureProvider } from '../../src/providers/azureDevops'
 import { installFetch, jsonResponse } from '../helpers/fetchMock'
 
-const BOARD_ID = 'myorg|MyProj|MyTeam|Bug'
+const BOARD_ID = 'myorg|MyProj|Bug'
 
 beforeEach(() => {
   installFetch([])
@@ -53,7 +53,7 @@ describe('azure.testAuth', () => {
 })
 
 describe('azure.listBoards', () => {
-  it('produces project|team|type combos', async () => {
+  it('produces project|workItemType combos from the fixed type list', async () => {
     installFetch([
       {
         matches: (u) => u.endsWith('/_apis/projects?api-version=7.1'),
@@ -62,26 +62,16 @@ describe('azure.listBoards', () => {
             value: [{ id: 'p1', name: 'MyProj' }],
           }),
       },
-      {
-        matches: (u) => u.endsWith('/MyProj/_apis/teams?api-version=7.1'),
-        response: () =>
-          jsonResponse(200, { value: [{ id: 't1', name: 'MyTeam' }] }),
-      },
-      {
-        matches: (u) =>
-          u.endsWith('/MyProj/_apis/wit/workitemtypes?api-version=7.1'),
-        response: () =>
-          jsonResponse(200, {
-            value: [{ name: 'Bug' }, { name: 'Task' }],
-          }),
-      },
     ])
     const r = await azureProvider.listBoards('myorg|secret')
     expect(r.ok).toBe(true)
     if (r.ok) {
       expect(r.value).toEqual([
-        { id: 'myorg|MyProj|MyTeam|Bug', label: 'MyProj / MyTeam / Bug' },
-        { id: 'myorg|MyProj|MyTeam|Task', label: 'MyProj / MyTeam / Task' },
+        { id: 'myorg|MyProj|Bug', label: 'MyProj / Bug' },
+        { id: 'myorg|MyProj|Task', label: 'MyProj / Task' },
+        { id: 'myorg|MyProj|User Story', label: 'MyProj / User Story' },
+        { id: 'myorg|MyProj|Feature', label: 'MyProj / Feature' },
+        { id: 'myorg|MyProj|Epic', label: 'MyProj / Epic' },
       ])
     }
   })
@@ -213,7 +203,7 @@ describe('azure.createTicket HTML escaping', () => {
           }),
       },
     ])
-    await azureProvider.createTicket('myorg|secret', 'myorg|MyProj|MyTeam|Bug', {
+    await azureProvider.createTicket('myorg|secret', 'myorg|MyProj|Bug', {
       title: 't',
       description: 'desc with <script>',
       type: null,
