@@ -7,6 +7,8 @@ interface Props {
   link: TicketLink
   /** When set and equal to `link.id`, render a "Ticket created" success banner. */
   justCreated?: boolean
+  /** Shown alongside the success banner when the thumbnail upload failed. */
+  attachmentFailed?: boolean
   onOpen: (url: string) => void
   onFocus: () => void
   onUnlink: () => void
@@ -20,6 +22,7 @@ function providerLabel(id: TicketLink['providerId']): string {
 export function LinkedView({
   link,
   justCreated = false,
+  attachmentFailed = false,
   onOpen,
   onFocus,
   onUnlink,
@@ -35,6 +38,11 @@ export function LinkedView({
           <a href={link.url} onClick={(e) => { e.preventDefault(); onOpen(link.url) }}>
             Open {link.id}
           </a>
+        </div>
+      )}
+      {justCreated && attachmentFailed && (
+        <div className="warning-banner" role="alert">
+          Thumbnail couldn't be attached. The ticket was created without it.
         </div>
       )}
       <p>

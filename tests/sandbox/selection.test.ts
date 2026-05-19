@@ -108,4 +108,29 @@ describe('exportThumbnail', () => {
       constraint: { type: 'SCALE', value: 2048 / 5000 },
     })
   })
+
+  it('returns { bytes, oversized: false } when under the size cap', async () => {
+    const { node } = exportableNode(800, 600)
+    const result = await exportThumbnail(node)
+    expect(result.oversized).toBe(false)
+    expect(result.bytes).toBeInstanceOf(Uint8Array)
+    expect(result.bytes!.length).toBe(3)
+  })
+
+  it('returns { bytes: null, oversized: true } when export exceeds 5MB', async () => {
+    const big = new Uint8Array(5 * 1024 * 1024 + 1)
+    const node = {
+      id: '1:1',
+      name: 'n',
+      type: 'SECTION',
+      width: 4000,
+      height: 3000,
+      getPluginData: vi.fn(() => ''),
+      setPluginData: vi.fn(),
+      exportAsync: vi.fn(async () => big),
+    } as unknown as SceneNode
+    const result = await exportThumbnail(node)
+    expect(result.oversized).toBe(true)
+    expect(result.bytes).toBeNull()
+  })
 })

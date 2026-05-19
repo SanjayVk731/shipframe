@@ -22,11 +22,14 @@ beforeEach(() => {
   onOpenSettings.mockReset()
 })
 
-function renderView(props: { justCreated?: boolean } = {}) {
+function renderView(
+  props: { justCreated?: boolean; attachmentFailed?: boolean } = {},
+) {
   return render(
     <LinkedView
       link={link}
       justCreated={props.justCreated}
+      attachmentFailed={props.attachmentFailed}
       onOpen={onOpen}
       onFocus={onFocus}
       onUnlink={onUnlink}
@@ -78,5 +81,15 @@ describe('LinkedView', () => {
     renderView({ justCreated: true })
     await userEvent.click(screen.getByRole('link', { name: /open AZ-42/i }))
     expect(onOpen).toHaveBeenCalledWith('https://x/42')
+  })
+
+  it('shows a warning when attachmentFailed is true and the ticket was just created', () => {
+    renderView({ justCreated: true, attachmentFailed: true })
+    expect(screen.getByRole('alert')).toHaveTextContent(/thumbnail/i)
+  })
+
+  it('does not show the attachment warning without justCreated', () => {
+    renderView({ attachmentFailed: true })
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 })

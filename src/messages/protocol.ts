@@ -27,7 +27,9 @@ export type SandboxToUi =
   | {
       type: 'thumbnail'
       nodeId: string
-      image: Uint8Array
+      /** null when the export exceeded the byte cap; `oversized` will be true in that case. */
+      image: Uint8Array | null
+      oversized: boolean
       requestId: string
     }
   | { type: 'file-config'; config: FileConfig | null; requestId: string }

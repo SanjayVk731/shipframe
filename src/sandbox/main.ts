@@ -52,11 +52,12 @@ figma.ui.onmessage = async (raw: unknown) => {
           return
         }
         try {
-          const image = await exportThumbnail(node)
+          const result = await exportThumbnail(node)
           post({
             type: 'thumbnail',
             nodeId: msg.nodeId,
-            image,
+            image: result.bytes,
+            oversized: result.oversized,
             requestId: msg.requestId,
           })
         } catch (e) {

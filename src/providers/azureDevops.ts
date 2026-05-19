@@ -103,18 +103,20 @@ export const azureProvider: TicketProvider = {
   async createTicket(combined, boardId, ticket) {
     const { token } = parsePat(combined)
     const { org, project, workItemType } = parseBoardId(boardId)
-    const ops: Array<{ op: 'add'; path: string; value: string }> = [
+    const ops: Array<{ op: 'add'; path: string; value: unknown }> = [
       { op: 'add', path: '/fields/System.Title', value: ticket.title },
     ]
-    const escapedLink = escapeHtml(ticket.figmaDeepLink)
-    const descriptionHtml =
-      `<p><strong>Figma frame:</strong> <a href="${escapedLink}">${escapedLink}</a></p>` +
-      (ticket.description ? `<p>${escapeHtml(ticket.description)}</p>` : '')
-    ops.push({
-      op: 'add',
-      path: '/fields/System.Description',
-      value: descriptionHtml,
-    })
+    // Description is pre-composed HTML from the UI's composeDescription(): it
+    // already handles escaping per section. The Figma link is attached as a
+    // Hyperlink relation below, not embedded here, so description edits in
+    // Azure don't clobber it.
+    if (ticket.description) {
+      ops.push({
+        op: 'add',
+        path: '/fields/System.Description',
+        value: ticket.description,
+      })
+    }
     if (ticket.priority)
       ops.push({
         op: 'add',
@@ -133,6 +135,15 @@ export const azureProvider: TicketProvider = {
         path: '/fields/System.Tags',
         value: ticket.labelIds.join('; '),
       })
+    ops.push({
+      op: 'add',
+      path: '/relations/-',
+      value: {
+        rel: 'Hyperlink',
+        url: ticket.figmaDeepLink,
+        attributes: { comment: 'Figma frame' },
+      },
+    })
 
     const r = await tryRequest<{
       id: number
@@ -158,6 +169,10 @@ export const azureProvider: TicketProvider = {
   async uploadAttachment(combined, ticketRef, image, fileName) {
     const { token } = parsePat(combined)
     const { org } = parseBoardId(ticketRef.boardId)
+    // Wrap in a Blob: Figma's UI iframe runtime stringifies Uint8Array bodies
+    // ("[object Uint8Array]") when passed directly to fetch(), so the upload
+    // succeeds with garbage bytes and Azure returns a URL pointing at a corrupt file.
+    const body = new Blob([new Uint8Array(image)], { type: 'image/png' })
     const upload = await tryRequest<{ url: string }>(() =>
       fetch(
         `https://dev.azure.com/${org}/_apis/wit/attachments?fileName=${encodeURIComponent(fileName)}&${API_VERSION}`,
@@ -167,7 +182,7 @@ export const azureProvider: TicketProvider = {
             Authorization: authHeader(token),
             'Content-Type': 'application/octet-stream',
           },
-          body: image as BodyInit,
+          body,
         },
       ),
     )
@@ -196,13 +211,4 @@ export const azureProvider: TicketProvider = {
     if (!patch.ok) return patch
     return { ok: true, status: patch.status, value: { supported: true } }
   },
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
 }

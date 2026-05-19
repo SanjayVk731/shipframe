@@ -23,8 +23,18 @@ export function classifySelection(nodes: readonly SceneNode[]): SelectionState {
 }
 
 const MAX_THUMB_EDGE = 2048
+// Hard cap on the PNG byte size we attach to a ticket. Both Azure DevOps
+// (~60MB limit) and Notion (5MB on free workspaces) accept files of this size,
+// and beyond it the upload either fails or sits long enough that we'd rather
+// skip and tell the user. Large sections — esp. multi-frame sections — are the
+// usual cause.
+const MAX_THUMB_BYTES = 5 * 1024 * 1024
 
-export async function exportThumbnail(node: SceneNode): Promise<Uint8Array> {
+export type ThumbnailResult =
+  | { bytes: Uint8Array; oversized: false }
+  | { bytes: null; oversized: true }
+
+export async function exportThumbnail(node: SceneNode): Promise<ThumbnailResult> {
   const exportable = node as unknown as {
     width: number
     height: number
@@ -32,8 +42,12 @@ export async function exportThumbnail(node: SceneNode): Promise<Uint8Array> {
   }
   const longest = Math.max(exportable.width, exportable.height)
   const scale = longest > MAX_THUMB_EDGE ? MAX_THUMB_EDGE / longest : 2
-  return exportable.exportAsync({
+  const bytes = await exportable.exportAsync({
     format: 'PNG',
     constraint: { type: 'SCALE', value: scale },
   })
+  if (bytes.length > MAX_THUMB_BYTES) {
+    return { bytes: null, oversized: true }
+  }
+  return { bytes, oversized: false }
 }

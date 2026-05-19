@@ -4,6 +4,7 @@ import { Input } from '../components/Input'
 import { ErrorBanner } from '../components/ErrorBanner'
 import { ThumbnailPreview } from '../components/ThumbnailPreview'
 import { ViewHeader } from '../components/ViewHeader'
+import { composeDescription } from '../composeDescription'
 import type {
   FieldSchema,
   ProviderId,
@@ -11,12 +12,25 @@ import type {
 } from '../../shared/types'
 import type { Result } from '../../providers/types'
 
+type SectionSet = 'bug' | 'story' | 'task'
+
+function sectionSetFor(workItemType: string | undefined): SectionSet {
+  if (workItemType === 'Bug') return 'bug'
+  if (workItemType === 'Task' || workItemType === 'Epic') return 'task'
+  // User Story, Feature, anything custom → story set (AC + out of scope)
+  return 'story'
+}
+
 interface Props {
   providerId: ProviderId
   boardId: string
   boardLabel: string
   nodeName: string
   thumbnail: Uint8Array | null
+  /** Set when the section/frame exceeded the byte cap and no thumbnail will be attached. */
+  thumbnailOversized?: boolean
+  /** Azure work item type ("Bug", "User Story", etc.) — drives which structured sections render. */
+  workItemType?: string
   figmaDeepLink: string
   getFieldSchema: (
     providerId: ProviderId,
@@ -35,12 +49,42 @@ function reasonToMessage(reason: string): string {
   return 'Something went wrong.'
 }
 
+/**
+ * Pulls a human-readable line out of a provider's error body. Both Azure DevOps
+ * (`{ message, typeKey }`) and Notion (`{ code, message }`) return JSON with a
+ * `message` field. Falls back to the raw detail string when parsing fails.
+ */
+function extractProviderDetail(detail: string | undefined): string | null {
+  if (!detail) return null
+  try {
+    const parsed = JSON.parse(detail) as { message?: unknown }
+    if (typeof parsed.message === 'string' && parsed.message.length > 0) {
+      return parsed.message
+    }
+  } catch {
+    // not JSON — fall through
+  }
+  const trimmed = detail.trim()
+  return trimmed.length > 0 && trimmed.length < 500 ? trimmed : null
+}
+
+function errorToMessage(r: {
+  reason: string
+  detail?: string | undefined
+}): string {
+  const detail = extractProviderDetail(r.detail)
+  if (detail) return detail
+  return reasonToMessage(r.reason)
+}
+
 export function CreateView({
   providerId,
   boardId,
   boardLabel,
   nodeName,
   thumbnail,
+  thumbnailOversized = false,
+  workItemType,
   figmaDeepLink,
   getFieldSchema,
   onCreate,
@@ -54,8 +98,15 @@ export function CreateView({
   const [priority, setPriority] = useState('')
   const [assigneeId, setAssigneeId] = useState('')
   const [labelIds, setLabelIds] = useState<string[]>([])
+  const [reproSteps, setReproSteps] = useState('')
+  const [expected, setExpected] = useState('')
+  const [actual, setActual] = useState('')
+  const [acceptanceCriteria, setAcceptanceCriteria] = useState('')
+  const [outOfScope, setOutOfScope] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+
+  const sectionSet = sectionSetFor(workItemType)
 
   useEffect(() => {
     let cancelled = false
@@ -76,9 +127,18 @@ export function CreateView({
     if (!canSubmit) return
     setSubmitting(true)
     setSubmitError(null)
+    const composed = composeDescription({
+      main: description,
+      reproSteps: sectionSet === 'bug' ? reproSteps : '',
+      expected: sectionSet === 'bug' ? expected : '',
+      actual: sectionSet === 'bug' ? actual : '',
+      acceptanceCriteria:
+        sectionSet === 'story' || sectionSet === 'task' ? acceptanceCriteria : '',
+      outOfScope: sectionSet === 'story' ? outOfScope : '',
+    })
     const input: TicketInput = {
       title: title.trim(),
-      description,
+      description: composed,
       type: type || null,
       priority: priority || null,
       assigneeId: assigneeId || null,
@@ -87,7 +147,7 @@ export function CreateView({
     }
     const r = await onCreate(input)
     setSubmitting(false)
-    if (!r.ok) setSubmitError(reasonToMessage(r.reason))
+    if (!r.ok) setSubmitError(errorToMessage(r))
   }
 
   return (
@@ -97,11 +157,59 @@ export function CreateView({
 
       <ThumbnailPreview image={thumbnail} alt={nodeName} />
 
+      {thumbnailOversized && (
+        <div className="warning-banner" role="status">
+          This selection is too large to attach as an image. The ticket will be
+          created with the Figma link only.
+        </div>
+      )}
+
       {schemaError && <ErrorBanner message={schemaError} />}
       {submitError && <ErrorBanner message={submitError} onRetry={submit} />}
 
       <Input label="Title" value={title} onChange={setTitle} />
       <Input label="Description" value={description} onChange={setDescription} multiline />
+
+      {sectionSet === 'bug' && (
+        <>
+          <Input
+            label="Reproduction steps"
+            value={reproSteps}
+            onChange={setReproSteps}
+            placeholder="one per line"
+            multiline
+          />
+          <Input
+            label="Expected behavior"
+            value={expected}
+            onChange={setExpected}
+            multiline
+          />
+          <Input
+            label="Actual behavior"
+            value={actual}
+            onChange={setActual}
+            multiline
+          />
+        </>
+      )}
+      {(sectionSet === 'story' || sectionSet === 'task') && (
+        <Input
+          label="Acceptance criteria"
+          value={acceptanceCriteria}
+          onChange={setAcceptanceCriteria}
+          placeholder="one per line"
+          multiline
+        />
+      )}
+      {sectionSet === 'story' && (
+        <Input
+          label="Out of scope"
+          value={outOfScope}
+          onChange={setOutOfScope}
+          multiline
+        />
+      )}
 
       {schema && schema.types.length > 0 && (
         <div className="field">

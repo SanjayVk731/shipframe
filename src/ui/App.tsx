@@ -27,18 +27,32 @@ function deepLinkFor(fileKey: string, nodeId: string): string {
   return `https://www.figma.com/design/${fileKey}/?node-id=${encodeURIComponent(urlNodeId)}`
 }
 
+/**
+ * Azure boardId is "org|project|workItemType" — pull the WIT out for CreateView.
+ * Other providers (Notion) return undefined.
+ */
+function workItemTypeFor(providerId: ProviderId, boardId: string): string | undefined {
+  if (providerId !== 'azure') return undefined
+  const parts = boardId.split('|')
+  return parts[2]
+}
+
 export function App() {
   const sandbox = useSandbox()
   const [mode, setMode] = useState<Mode>('loading')
   const [fileConfig, setFileConfig] = useState<FileConfig | null>(null)
   const [pats, setPats] = useState<PatCache>({ notion: null, azure: null })
   const [thumb, setThumb] = useState<Uint8Array | null>(null)
+  const [thumbOversized, setThumbOversized] = useState(false)
   // Explicit override — when the user clicks the settings cog, we want to show
   // Settings even though a valid fileConfig exists.
   const [forceSettings, setForceSettings] = useState(false)
   // The id of the most recently-created ticket, used by LinkedView to show a
   // "just created" success banner. Cleared when selection changes.
   const [justCreatedId, setJustCreatedId] = useState<string | null>(null)
+  // Set to the just-created ticket id when its thumbnail upload failed, so
+  // LinkedView can show a "thumbnail not attached" warning.
+  const [attachmentFailedId, setAttachmentFailedId] = useState<string | null>(null)
 
   // Load file config + persisted PATs once on mount.
   useEffect(() => {
@@ -66,6 +80,7 @@ export function App() {
     sandbox.selection.kind === 'single' ? sandbox.selection.nodeId : null
   useEffect(() => {
     setJustCreatedId(null)
+    setAttachmentFailedId(null)
   }, [selectedNodeId])
 
   // React to selection changes when configured.
@@ -73,13 +88,17 @@ export function App() {
     if (!fileConfig) return
     setMode(selectMode(sandbox.selection))
     setThumb(null)
+    setThumbOversized(false)
     if (sandbox.selection.kind !== 'single' || sandbox.selection.link !== null) return
     let cancelled = false
     const nodeId = sandbox.selection.nodeId
     void (async () => {
       const res = await sandbox.request({ type: 'export-thumbnail', nodeId })
       if (cancelled) return
-      if (res.type === 'thumbnail') setThumb(res.image)
+      if (res.type === 'thumbnail') {
+        setThumb(res.image)
+        setThumbOversized(res.oversized)
+      }
     })()
     return () => {
       cancelled = true
@@ -136,6 +155,7 @@ export function App() {
       const provider = getProvider(fileConfig.providerId)
       const created = await provider.createTicket(pat, fileConfig.boardId, input)
       if (!created.ok) return created
+      let attachmentOk = true
       if (sandbox.selection.kind === 'single' && thumb) {
         const up = await provider.uploadAttachment(
           pat,
@@ -144,6 +164,7 @@ export function App() {
           'thumbnail.png',
         )
         if (!up.ok) {
+          attachmentOk = false
           console.warn(
             'figma-tickets: thumbnail upload failed',
             up.reason,
@@ -166,6 +187,7 @@ export function App() {
         // Mark this link as "just created" BEFORE refreshing selection so the
         // success banner is visible on the very first LinkedView render.
         setJustCreatedId(link.id)
+        setAttachmentFailedId(attachmentOk ? null : link.id)
         // pluginData writes don't fire selectionchange — refresh manually so
         // the UI flips from CreateView to LinkedView.
         await sandbox.request({ type: 'get-selection-state' })
@@ -234,6 +256,7 @@ export function App() {
       <LinkedView
         link={sandbox.selection.link}
         justCreated={justCreatedId === sandbox.selection.link.id}
+        attachmentFailed={attachmentFailedId === sandbox.selection.link.id}
         onOpen={onOpenTicket}
         onFocus={onFocusNode}
         onUnlink={onUnlink}
@@ -249,6 +272,8 @@ export function App() {
       boardLabel={fileConfig.boardLabel}
       nodeName={sandbox.selection.nodeName}
       thumbnail={thumb}
+      thumbnailOversized={thumbOversized}
+      workItemType={workItemTypeFor(fileConfig.providerId, fileConfig.boardId)}
       figmaDeepLink={deepLinkFor(fileConfig.fileKey, sandbox.selection.nodeId)}
       getFieldSchema={getFieldSchema}
       onCreate={onCreate}

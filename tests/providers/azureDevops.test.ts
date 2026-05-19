@@ -78,7 +78,7 @@ describe('azure.listBoards', () => {
 })
 
 describe('azure.createTicket', () => {
-  it('POSTs JSON Patch and includes figma link in description', async () => {
+  it('POSTs JSON Patch with title, priority, assignee, tags', async () => {
     let captured: RequestInit | undefined
     installFetch([
       {
@@ -119,16 +119,91 @@ describe('azure.createTicket', () => {
     const ops = JSON.parse(captured?.body as string) as Array<{
       op: string
       path: string
-      value: string
+      value: unknown
     }>
     const byPath = Object.fromEntries(ops.map((o) => [o.path, o.value]))
     expect(byPath['/fields/System.Title']).toBe('Bug title')
     expect(byPath['/fields/Microsoft.VSTS.Common.Priority']).toBe('2')
     expect(byPath['/fields/System.AssignedTo']).toBe('me@x')
     expect(byPath['/fields/System.Tags']).toBe('frontend')
-    expect(byPath['/fields/System.Description']).toContain(
-      'https://figma.com/file/abc?node-id=1%3A2',
-    )
+  })
+
+  it('puts the figma link in a Hyperlink relation, not in the description', async () => {
+    let captured: RequestInit | undefined
+    installFetch([
+      {
+        matches: (u, init) => {
+          if (u.endsWith('/wit/workitems/$Bug?api-version=7.1')) {
+            captured = init
+            return true
+          }
+          return false
+        },
+        response: () =>
+          jsonResponse(200, {
+            id: 7,
+            _links: { html: { href: 'https://dev.azure.com/myorg/_workitems/edit/7' } },
+          }),
+      },
+    ])
+    await azureProvider.createTicket('myorg|secret', BOARD_ID, {
+      title: 't',
+      description: 'just the body, no link please',
+      type: null,
+      priority: null,
+      assigneeId: null,
+      labelIds: [],
+      figmaDeepLink: 'https://figma.com/file/abc?node-id=1%3A2',
+    })
+    const ops = JSON.parse(captured?.body as string) as Array<{
+      op: string
+      path: string
+      value: unknown
+    }>
+    const desc = ops.find((o) => o.path === '/fields/System.Description')
+      ?.value as string | undefined
+    expect(desc ?? '').not.toContain('figma.com')
+    expect(desc ?? '').toContain('just the body, no link please')
+    const relation = ops.find((o) => o.path === '/relations/-')
+    expect(relation).toBeDefined()
+    expect(relation?.value).toMatchObject({
+      rel: 'Hyperlink',
+      url: 'https://figma.com/file/abc?node-id=1%3A2',
+    })
+  })
+
+  it('omits the description op entirely when description is empty', async () => {
+    let captured: RequestInit | undefined
+    installFetch([
+      {
+        matches: (u, init) => {
+          if (u.endsWith('/wit/workitems/$Bug?api-version=7.1')) {
+            captured = init
+            return true
+          }
+          return false
+        },
+        response: () =>
+          jsonResponse(200, {
+            id: 8,
+            _links: { html: { href: 'https://dev.azure.com/myorg/_workitems/edit/8' } },
+          }),
+      },
+    ])
+    await azureProvider.createTicket('myorg|secret', BOARD_ID, {
+      title: 't',
+      description: '',
+      type: null,
+      priority: null,
+      assigneeId: null,
+      labelIds: [],
+      figmaDeepLink: 'https://figma.com/file/abc?node-id=1%3A2',
+    })
+    const ops = JSON.parse(captured?.body as string) as Array<{
+      op: string
+      path: string
+    }>
+    expect(ops.some((o) => o.path === '/fields/System.Description')).toBe(false)
   })
 })
 
@@ -168,6 +243,38 @@ describe('azure.uploadAttachment', () => {
     if (r.ok) expect(r.value.supported).toBe(true)
     expect(calls).toEqual(['upload', 'patch'])
   })
+
+  it('uploads the bytes as a Blob, not a Uint8Array (workaround for Figma iframe runtime that stringifies typed arrays)', async () => {
+    let uploadInit: RequestInit | undefined
+    installFetch([
+      {
+        matches: (u, init) => {
+          if (u.includes('/_apis/wit/attachments?fileName=')) {
+            uploadInit = init
+            return true
+          }
+          return false
+        },
+        response: () => jsonResponse(200, { url: 'https://attach/url-1' }),
+      },
+      {
+        matches: (u) =>
+          u === 'https://dev.azure.com/myorg/_apis/wit/workitems/42?api-version=7.1',
+        response: () => jsonResponse(200, {}),
+      },
+    ])
+    const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47])
+    await azureProvider.uploadAttachment(
+      'myorg|secret',
+      { id: '42', boardId: BOARD_ID },
+      bytes,
+      'thumb.png',
+    )
+    expect(uploadInit?.body).toBeInstanceOf(Blob)
+    const blob = uploadInit?.body as Blob
+    expect(blob.size).toBe(4)
+    expect(blob.type).toBe('image/png')
+  })
 })
 
 describe('azure.parsePat validation (via testAuth)', () => {
@@ -184,8 +291,8 @@ describe('azure.parsePat validation (via testAuth)', () => {
   })
 })
 
-describe('azure.createTicket HTML escaping', () => {
-  it('escapes figma deep link with ampersands', async () => {
+describe('azure.createTicket description pass-through', () => {
+  it('passes pre-composed HTML description through unchanged (the composer owns escaping)', async () => {
     let captured: RequestInit | undefined
     installFetch([
       {
@@ -203,22 +310,19 @@ describe('azure.createTicket HTML escaping', () => {
           }),
       },
     ])
+    const composedHtml =
+      '<p>context</p><h2>Reproduction steps</h2><ol><li>open</li></ol>'
     await azureProvider.createTicket('myorg|secret', 'myorg|MyProj|Bug', {
       title: 't',
-      description: 'desc with <script>',
+      description: composedHtml,
       type: null,
       priority: null,
       assigneeId: null,
       labelIds: [],
-      figmaDeepLink: 'https://figma.com/file/abc?node-id=1%3A2&t=foo',
+      figmaDeepLink: 'https://figma.com/file/abc?node-id=1%3A2',
     })
     const ops = JSON.parse(captured?.body as string) as Array<{ path: string; value: string }>
     const desc = ops.find((o) => o.path === '/fields/System.Description')?.value ?? ''
-    // Ampersand must be escaped (twice — once in href, once in text)
-    expect(desc).toContain('href="https://figma.com/file/abc?node-id=1%3A2&amp;t=foo"')
-    expect(desc).toContain('>https://figma.com/file/abc?node-id=1%3A2&amp;t=foo<')
-    // Description body still escaped
-    expect(desc).toContain('&lt;script&gt;')
-    expect(desc).not.toContain('<script>')
+    expect(desc).toBe(composedHtml)
   })
 })
