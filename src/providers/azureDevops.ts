@@ -135,6 +135,20 @@ export const azureProvider: TicketProvider = {
         path: '/fields/System.Tags',
         value: ticket.labelIds.join('; '),
       })
+    if (ticket.acceptanceCriteriaHtml && ticket.acceptanceCriteriaHtml.length > 0) {
+      ops.push({
+        op: 'add',
+        path: '/fields/Microsoft.VSTS.Common.AcceptanceCriteria',
+        value: ticket.acceptanceCriteriaHtml,
+      })
+    }
+    if (ticket.reproStepsHtml && ticket.reproStepsHtml.length > 0) {
+      ops.push({
+        op: 'add',
+        path: '/fields/Microsoft.VSTS.TCM.ReproSteps',
+        value: ticket.reproStepsHtml,
+      })
+    }
     ops.push({
       op: 'add',
       path: '/relations/-',

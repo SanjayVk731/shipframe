@@ -38,6 +38,16 @@ export interface TicketInput {
   assigneeId: string | null
   labelIds: string[]
   figmaDeepLink: string
+  /**
+   * Pre-composed HTML for Azure's Microsoft.VSTS.Common.AcceptanceCriteria field.
+   * Empty string when no AC was provided. Notion ignores this today.
+   */
+  acceptanceCriteriaHtml?: string
+  /**
+   * Pre-composed HTML for Azure's Microsoft.VSTS.TCM.ReproSteps field.
+   * Empty string when no repro steps were provided. Notion ignores this today.
+   */
+  reproStepsHtml?: string
 }
 
 export interface Board {

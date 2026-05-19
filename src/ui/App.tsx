@@ -275,6 +275,7 @@ export function App() {
       thumbnailOversized={thumbOversized}
       workItemType={workItemTypeFor(fileConfig.providerId, fileConfig.boardId)}
       figmaDeepLink={deepLinkFor(fileConfig.fileKey, sandbox.selection.nodeId)}
+      figmaLinkLabel={sandbox.selection.nodeName}
       getFieldSchema={getFieldSchema}
       onCreate={onCreate}
       onOpenSettings={openSettings}

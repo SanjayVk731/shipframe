@@ -57,7 +57,7 @@ describe('CreateView', () => {
     expect(screen.getByRole('button', { name: /create ticket/i })).toBeDisabled()
   })
 
-  it('calls onCreate with composed HTML description', async () => {
+  it('calls onCreate with composed HTML description that includes the Figma link', async () => {
     getFieldSchema.mockResolvedValue({ ok: true, status: 200, value: schema })
     onCreate.mockResolvedValue({ ok: true })
     renderView()
@@ -67,13 +67,18 @@ describe('CreateView', () => {
     await userEvent.selectOptions(screen.getByLabelText(/priority/i), 'p1')
     await userEvent.click(screen.getByRole('button', { name: /create ticket/i }))
     await waitFor(() => expect(onCreate).toHaveBeenCalled())
-    expect(onCreate.mock.calls[0]?.[0]).toMatchObject({
+    const arg = onCreate.mock.calls[0]?.[0]
+    expect(arg).toMatchObject({
       title: 'Hero frame',
-      description: '<p>Body</p>',
       type: 't-bug',
       priority: 'p1',
       figmaDeepLink: 'https://figma.com/file/abc?node-id=1%3A2',
     })
+    expect(arg?.description).toContain('<p>Body</p>')
+    expect(arg?.description).toContain('<strong>Figma:</strong>')
+    expect(arg?.description).toContain(
+      'href="https://figma.com/file/abc?node-id=1%3A2"',
+    )
   })
 
   it('renders Bug sections (repro / expected / actual) when workItemType is Bug', async () => {
@@ -112,7 +117,7 @@ describe('CreateView', () => {
     expect(screen.getByLabelText(/out of scope/i)).toBeInTheDocument()
   })
 
-  it('composes structured Bug sections into the description on submit', async () => {
+  it('routes Bug sections to the right fields on submit', async () => {
     getFieldSchema.mockResolvedValue({ ok: true, status: 200, value: schema })
     onCreate.mockResolvedValue({ ok: true })
     renderView({ workItemType: 'Bug' })
@@ -126,13 +131,36 @@ describe('CreateView', () => {
     await userEvent.type(screen.getByLabelText(/actual behavior/i), 'errors')
     await userEvent.click(screen.getByRole('button', { name: /create ticket/i }))
     await waitFor(() => expect(onCreate).toHaveBeenCalled())
-    const desc = onCreate.mock.calls[0]?.[0]?.description as string
+    const arg = onCreate.mock.calls[0]?.[0]
+    const desc = arg?.description as string
+    // Description: figma link, main body, expected, actual — NOT repro
+    expect(desc).toContain('<strong>Figma:</strong>')
     expect(desc).toContain('<p>context line</p>')
-    expect(desc).toContain('<h2>Reproduction steps</h2>')
-    expect(desc).toContain('<li>open</li>')
-    expect(desc).toContain('<li>click</li>')
     expect(desc).toContain('<h2>Expected behavior</h2><p>loads</p>')
     expect(desc).toContain('<h2>Actual behavior</h2><p>errors</p>')
+    expect(desc).not.toContain('Reproduction')
+    // Repro steps live in their own field
+    expect(arg?.reproStepsHtml).toBe('<ol><li>open</li><li>click</li></ol>')
+    // No AC on a Bug
+    expect(arg?.acceptanceCriteriaHtml ?? '').toBe('')
+  })
+
+  it('routes Story AC to its own field, not into description', async () => {
+    getFieldSchema.mockResolvedValue({ ok: true, status: 200, value: schema })
+    onCreate.mockResolvedValue({ ok: true })
+    renderView({ workItemType: 'User Story' })
+    await waitFor(() => screen.getByLabelText(/title/i))
+    await userEvent.type(screen.getByLabelText(/^description$/i), 'context')
+    await userEvent.type(
+      screen.getByLabelText(/acceptance criteria/i),
+      '- A\n- B',
+    )
+    await userEvent.click(screen.getByRole('button', { name: /create ticket/i }))
+    await waitFor(() => expect(onCreate).toHaveBeenCalled())
+    const arg = onCreate.mock.calls[0]?.[0]
+    expect(arg?.acceptanceCriteriaHtml).toBe('<ul><li>A</li><li>B</li></ul>')
+    expect(arg?.description).not.toContain('Acceptance')
+    expect(arg?.description).not.toContain('<li>A</li>')
   })
 
   it('shows error banner when schema fetch fails', async () => {

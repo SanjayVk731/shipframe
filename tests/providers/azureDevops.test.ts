@@ -311,7 +311,7 @@ describe('azure.createTicket description pass-through', () => {
       },
     ])
     const composedHtml =
-      '<p>context</p><h2>Reproduction steps</h2><ol><li>open</li></ol>'
+      '<p>context</p><h2>Expected behavior</h2><p>loads</p>'
     await azureProvider.createTicket('myorg|secret', 'myorg|MyProj|Bug', {
       title: 't',
       description: composedHtml,
@@ -324,5 +324,101 @@ describe('azure.createTicket description pass-through', () => {
     const ops = JSON.parse(captured?.body as string) as Array<{ path: string; value: string }>
     const desc = ops.find((o) => o.path === '/fields/System.Description')?.value ?? ''
     expect(desc).toBe(composedHtml)
+  })
+})
+
+describe('azure.createTicket native field routing', () => {
+  function withCapture(boardId: string) {
+    let captured: RequestInit | undefined
+    const wit = boardId.split('|')[2] ?? ''
+    installFetch([
+      {
+        matches: (u, init) => {
+          if (u.endsWith(`/wit/workitems/$${wit}?api-version=7.1`)) {
+            captured = init
+            return true
+          }
+          return false
+        },
+        response: () =>
+          jsonResponse(200, {
+            id: 1,
+            _links: { html: { href: 'https://dev.azure.com/myorg/_workitems/edit/1' } },
+          }),
+      },
+    ])
+    return () => captured
+  }
+
+  it('routes acceptanceCriteriaHtml to Microsoft.VSTS.Common.AcceptanceCriteria', async () => {
+    const getCaptured = withCapture('myorg|MyProj|User Story')
+    await azureProvider.createTicket('myorg|secret', 'myorg|MyProj|User Story', {
+      title: 't',
+      description: '<p>context</p>',
+      type: null,
+      priority: null,
+      assigneeId: null,
+      labelIds: [],
+      figmaDeepLink: 'https://figma.com/x',
+      acceptanceCriteriaHtml: '<ul><li>A</li><li>B</li></ul>',
+    })
+    const ops = JSON.parse(getCaptured()?.body as string) as Array<{
+      path: string
+      value: unknown
+    }>
+    const byPath = Object.fromEntries(ops.map((o) => [o.path, o.value]))
+    expect(byPath['/fields/Microsoft.VSTS.Common.AcceptanceCriteria']).toBe(
+      '<ul><li>A</li><li>B</li></ul>',
+    )
+    expect(byPath['/fields/System.Description']).toBe('<p>context</p>')
+    expect(byPath['/fields/System.Description']).not.toContain('Acceptance')
+  })
+
+  it('routes reproStepsHtml to Microsoft.VSTS.TCM.ReproSteps when WIT is Bug', async () => {
+    const getCaptured = withCapture('myorg|MyProj|Bug')
+    await azureProvider.createTicket('myorg|secret', 'myorg|MyProj|Bug', {
+      title: 't',
+      description: '<p>context</p>',
+      type: null,
+      priority: null,
+      assigneeId: null,
+      labelIds: [],
+      figmaDeepLink: 'https://figma.com/x',
+      reproStepsHtml: '<ol><li>open</li><li>click</li></ol>',
+    })
+    const ops = JSON.parse(getCaptured()?.body as string) as Array<{
+      path: string
+      value: unknown
+    }>
+    const byPath = Object.fromEntries(ops.map((o) => [o.path, o.value]))
+    expect(byPath['/fields/Microsoft.VSTS.TCM.ReproSteps']).toBe(
+      '<ol><li>open</li><li>click</li></ol>',
+    )
+  })
+
+  it('omits AC and ReproSteps ops when those HTML strings are empty', async () => {
+    const getCaptured = withCapture('myorg|MyProj|Task')
+    await azureProvider.createTicket('myorg|secret', 'myorg|MyProj|Task', {
+      title: 't',
+      description: '<p>only context</p>',
+      type: null,
+      priority: null,
+      assigneeId: null,
+      labelIds: [],
+      figmaDeepLink: 'https://figma.com/x',
+      acceptanceCriteriaHtml: '',
+      reproStepsHtml: '',
+    })
+    const ops = JSON.parse(getCaptured()?.body as string) as Array<{
+      path: string
+    }>
+    expect(
+      ops.some(
+        (o) => o.path === '/fields/Microsoft.VSTS.Common.AcceptanceCriteria',
+      ),
+    ).toBe(false)
+    expect(
+      ops.some((o) => o.path === '/fields/Microsoft.VSTS.TCM.ReproSteps'),
+    ).toBe(false)
   })
 })

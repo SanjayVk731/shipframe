@@ -32,6 +32,8 @@ interface Props {
   /** Azure work item type ("Bug", "User Story", etc.) — drives which structured sections render. */
   workItemType?: string
   figmaDeepLink: string
+  /** Label used when rendering the prominent "Figma:" link in description (usually the frame name). */
+  figmaLinkLabel?: string
   getFieldSchema: (
     providerId: ProviderId,
     boardId: string,
@@ -86,6 +88,7 @@ export function CreateView({
   thumbnailOversized = false,
   workItemType,
   figmaDeepLink,
+  figmaLinkLabel,
   getFieldSchema,
   onCreate,
   onOpenSettings,
@@ -135,15 +138,21 @@ export function CreateView({
       acceptanceCriteria:
         sectionSet === 'story' || sectionSet === 'task' ? acceptanceCriteria : '',
       outOfScope: sectionSet === 'story' ? outOfScope : '',
+      figmaLink: {
+        url: figmaDeepLink,
+        label: figmaLinkLabel ?? 'Open in Figma',
+      },
     })
     const input: TicketInput = {
       title: title.trim(),
-      description: composed,
+      description: composed.description,
       type: type || null,
       priority: priority || null,
       assigneeId: assigneeId || null,
       labelIds,
       figmaDeepLink,
+      acceptanceCriteriaHtml: composed.acceptanceCriteriaHtml,
+      reproStepsHtml: composed.reproStepsHtml,
     }
     const r = await onCreate(input)
     setSubmitting(false)
