@@ -304,6 +304,20 @@ export function App() {
       getFieldSchema={getFieldSchema}
       onCreate={onCreate}
       onOpenSettings={openSettings}
+      aiConfig={aiProvider !== 'off' && aiKey.length > 0 ? { provider: aiProvider, key: aiKey } : undefined}
+      annotationsCount={sandbox.selection.kind === 'single' ? sandbox.selection.annotationsCount : 0}
+      textLayersCount={sandbox.selection.kind === 'single' ? sandbox.selection.textLayersCount : 0}
+      getFrameContext={async () => {
+        if (sandbox.selection.kind !== 'single') return undefined
+        const wit = workItemTypeFor(fileConfig.providerId, fileConfig.boardId)
+        const r = await sandbox.request({
+          type: 'get-frame-context',
+          nodeId: sandbox.selection.nodeId,
+          workItemType: wit,
+        })
+        if (r.type !== 'frame-context') return undefined
+        return r.context
+      }}
     />
   )
 }
