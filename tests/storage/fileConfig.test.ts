@@ -34,4 +34,9 @@ describe('fileConfig', () => {
     clearFileConfig()
     expect(getFileConfig()).toBeNull()
   })
+
+  it('returns null when stored JSON has wrong shape', () => {
+    figma.root.setPluginData('fileConfig', JSON.stringify({ providerId: 'jira', boardId: 'x', boardLabel: 'y' }))
+    expect(getFileConfig()).toBeNull()
+  })
 })

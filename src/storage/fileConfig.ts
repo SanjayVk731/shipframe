@@ -1,4 +1,4 @@
-import type { FileConfig, ProviderId } from '../shared/types'
+import type { FileConfig } from '../shared/types'
 
 const KEY = 'fileConfig'
 
@@ -31,5 +31,3 @@ export function setFileConfig(config: FileConfig): void {
 export function clearFileConfig(): void {
   figma.root.setPluginData(KEY, '')
 }
-
-export type { ProviderId }
