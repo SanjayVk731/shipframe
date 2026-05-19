@@ -5,6 +5,7 @@ import { CreateView } from './views/CreateView'
 import { LinkedView } from './views/LinkedView'
 import { ViewHeader } from './components/ViewHeader'
 import { getProvider } from '../providers/registry'
+import { getAiConfig, setAiConfig, clearAiConfig } from '../storage/aiConfig'
 import type {
   FileConfig,
   ProviderId,
@@ -54,6 +55,9 @@ export function App() {
   // LinkedView can show a "thumbnail not attached" warning.
   const [attachmentFailedId, setAttachmentFailedId] = useState<string | null>(null)
 
+  const [aiProvider, setAiProvider] = useState<'anthropic' | 'openai' | 'off'>('off')
+  const [aiKey, setAiKey] = useState('')
+
   // Load file config + persisted PATs once on mount.
   useEffect(() => {
     void (async () => {
@@ -69,6 +73,11 @@ export function App() {
         notion: notionPat.type === 'pat' ? notionPat.pat : null,
         azure: azurePat.type === 'pat' ? azurePat.pat : null,
       })
+      const aiCfg = await getAiConfig()
+      if (aiCfg) {
+        setAiProvider(aiCfg.provider)
+        setAiKey(aiCfg.key)
+      }
       setMode(cfg ? selectMode(sandbox.selection) : 'settings')
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -119,6 +128,19 @@ export function App() {
       setMode(selectMode(sandbox.selection))
     },
     [sandbox],
+  )
+
+  const onAiChange = useCallback(
+    async (next: { provider: 'anthropic' | 'openai' | 'off'; key: string }) => {
+      setAiProvider(next.provider)
+      setAiKey(next.key)
+      if (next.provider === 'off' || next.key === '') {
+        await clearAiConfig()
+      } else {
+        await setAiConfig({ provider: next.provider, key: next.key })
+      }
+    },
+    [],
   )
 
   const onUnlink = useCallback(async () => {
@@ -238,6 +260,9 @@ export function App() {
         listBoards={listBoards}
         onSave={onSaveSettings}
         onCancel={fileConfig ? () => setForceSettings(false) : undefined}
+        aiProvider={aiProvider}
+        aiKey={aiKey}
+        onAiChange={onAiChange}
       />
     )
   }

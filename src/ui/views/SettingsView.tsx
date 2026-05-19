@@ -22,6 +22,9 @@ interface Props {
   // Present only when a previous config exists, so users can back out of editing
   // settings without losing their existing config.
   onCancel?: () => void
+  aiProvider: 'anthropic' | 'openai' | 'off'
+  aiKey: string
+  onAiChange: (next: { provider: 'anthropic' | 'openai' | 'off'; key: string }) => void
 }
 
 /**
@@ -66,6 +69,9 @@ export function SettingsView({
   listBoards,
   onSave,
   onCancel,
+  aiProvider,
+  aiKey,
+  onAiChange,
 }: Props) {
   const initialSplit = splitInitialPat(initialProviderId, initialPat)
   const [providerId, setProviderId] = useState<ProviderId | null>(initialProviderId)
@@ -328,6 +334,41 @@ export function SettingsView({
           </div>
         </div>
       )}
+
+      <fieldset style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--figma-color-border, #444)' }}>
+        <legend>AI Draft (optional)</legend>
+        <p style={{ marginTop: 0, marginBottom: 8, opacity: 0.75, fontSize: '12px' }}>
+          Disabled by default. Sends frame name, native annotations, and visible
+          text layer copy to your chosen provider using your own API key.
+          No image content. No telemetry.
+        </p>
+        <div className="field">
+          <label htmlFor="ai-provider">Provider</label>
+          <select
+            id="ai-provider"
+            value={aiProvider}
+            onChange={(e) =>
+              onAiChange({
+                provider: e.target.value as 'anthropic' | 'openai' | 'off',
+                key: aiKey,
+              })
+            }
+          >
+            <option value="off">Off</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="openai">OpenAI</option>
+          </select>
+        </div>
+        {aiProvider !== 'off' && (
+          <Input
+            label="API key"
+            value={aiKey}
+            onChange={(v) => onAiChange({ provider: aiProvider, key: v })}
+            type="password"
+            placeholder={aiProvider === 'anthropic' ? 'sk-ant-…' : 'sk-…'}
+          />
+        )}
+      </fieldset>
     </div>
   )
 }
