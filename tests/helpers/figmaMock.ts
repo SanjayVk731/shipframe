@@ -19,7 +19,6 @@ export function installFigmaMock() {
   const store = new Map<string, unknown>()
   const rootData = new Map<string, string>()
   const nodes = new Map<string, MockNode>()
-  const nodePluginData = new Map<string, Map<string, string>>()
 
   function makeNode(
     id: string,
@@ -37,7 +36,6 @@ export function installFigmaMock() {
       annotations: [],
     }
     nodes.set(id, node)
-    nodePluginData.set(id, new Map())
     return node
   }
 
@@ -63,5 +61,5 @@ export function installFigmaMock() {
     getNodeByIdAsync: vi.fn(async (id: string) => nodes.get(id) ?? null),
   }
   ;(globalThis as unknown as { figma: typeof figma }).figma = figma
-  return { store, rootData, nodes, nodePluginData, figma, makeNode }
+  return { store, rootData, nodes, figma, makeNode }
 }
