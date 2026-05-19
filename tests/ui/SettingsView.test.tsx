@@ -13,12 +13,12 @@ beforeEach(() => {
   listBoards.mockReset()
 })
 
-function renderView() {
+function renderView(initial?: Partial<{ providerId: 'notion' | 'azure'; pat: string; fileKey: string }>) {
   return render(
     <SettingsView
-      initialProviderId={null}
-      initialPat=""
-      initialFileKey=""
+      initialProviderId={initial?.providerId ?? null}
+      initialPat={initial?.pat ?? ''}
+      initialFileKey={initial?.fileKey ?? ''}
       onSave={onSave}
       testAuth={testAuth}
       listBoards={listBoards}
@@ -26,16 +26,17 @@ function renderView() {
   )
 }
 
-describe('SettingsView', () => {
-  it('disables Test connection until provider + PAT entered', async () => {
+describe('SettingsView (Notion)', () => {
+  it('Test connection is hidden until a provider is selected, then disabled until token entered', async () => {
     renderView()
-    expect(screen.getByRole('button', { name: /test connection/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /test connection/i })).toBeNull()
     await userEvent.click(screen.getByLabelText(/notion/i))
-    await userEvent.type(screen.getByLabelText(/personal access token/i), 'secret')
+    expect(screen.getByRole('button', { name: /test connection/i })).toBeDisabled()
+    await userEvent.type(screen.getByLabelText(/notion integration token/i), 'secret')
     expect(screen.getByRole('button', { name: /test connection/i })).toBeEnabled()
   })
 
-  it('shows boards after successful auth', async () => {
+  it('shows databases after successful auth', async () => {
     testAuth.mockResolvedValue({ ok: true, status: 200, value: true })
     listBoards.mockResolvedValue({
       ok: true,
@@ -47,7 +48,7 @@ describe('SettingsView', () => {
     })
     renderView()
     await userEvent.click(screen.getByLabelText(/notion/i))
-    await userEvent.type(screen.getByLabelText(/personal access token/i), 'secret')
+    await userEvent.type(screen.getByLabelText(/notion integration token/i), 'secret')
     await userEvent.click(screen.getByRole('button', { name: /test connection/i }))
     await waitFor(() => screen.getByText(/Bugs/))
     expect(screen.getByText('Specs')).toBeInTheDocument()
@@ -57,7 +58,7 @@ describe('SettingsView', () => {
     testAuth.mockResolvedValue({ ok: false, status: 401, reason: 'auth_failed' })
     renderView()
     await userEvent.click(screen.getByLabelText(/notion/i))
-    await userEvent.type(screen.getByLabelText(/personal access token/i), 'bad')
+    await userEvent.type(screen.getByLabelText(/notion integration token/i), 'bad')
     await userEvent.click(screen.getByRole('button', { name: /test connection/i }))
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(/token isn't working/i),
@@ -69,7 +70,7 @@ describe('SettingsView', () => {
     listBoards.mockResolvedValue({ ok: true, status: 200, value: [] })
     renderView()
     await userEvent.click(screen.getByLabelText(/notion/i))
-    await userEvent.type(screen.getByLabelText(/personal access token/i), 'secret')
+    await userEvent.type(screen.getByLabelText(/notion integration token/i), 'secret')
     await userEvent.click(screen.getByRole('button', { name: /test connection/i }))
     await waitFor(() =>
       expect(
@@ -78,7 +79,7 @@ describe('SettingsView', () => {
     )
   })
 
-  it('saves selected board with parsed file key', async () => {
+  it('saves selected database with parsed file key', async () => {
     testAuth.mockResolvedValue({ ok: true, status: 200, value: true })
     listBoards.mockResolvedValue({
       ok: true,
@@ -87,10 +88,10 @@ describe('SettingsView', () => {
     })
     renderView()
     await userEvent.click(screen.getByLabelText(/notion/i))
-    await userEvent.type(screen.getByLabelText(/personal access token/i), 'secret')
+    await userEvent.type(screen.getByLabelText(/notion integration token/i), 'secret')
     await userEvent.click(screen.getByRole('button', { name: /test connection/i }))
     await waitFor(() => screen.getByText('Bugs'))
-    await userEvent.selectOptions(screen.getByLabelText(/board/i), 'db-1')
+    await userEvent.selectOptions(screen.getByLabelText(/database/i), 'db-1')
     await userEvent.type(
       screen.getByLabelText(/figma file url/i),
       'https://www.figma.com/design/abc123/My-File',
@@ -117,17 +118,108 @@ describe('SettingsView', () => {
     })
     renderView()
     await userEvent.click(screen.getByLabelText(/notion/i))
-    await userEvent.type(screen.getByLabelText(/personal access token/i), 'secret')
+    await userEvent.type(screen.getByLabelText(/notion integration token/i), 'secret')
     await userEvent.click(screen.getByRole('button', { name: /test connection/i }))
     await waitFor(() => screen.getByText('Bugs'))
-    await userEvent.selectOptions(screen.getByLabelText(/board/i), 'db-1')
+    await userEvent.selectOptions(screen.getByLabelText(/database/i), 'db-1')
     expect(screen.getByRole('button', { name: /^save$/i })).toBeDisabled()
-    await userEvent.type(
-      screen.getByLabelText(/figma file url/i),
-      'not a url',
-    )
+    await userEvent.type(screen.getByLabelText(/figma file url/i), 'not a url')
     expect(screen.getByRole('button', { name: /^save$/i })).toBeDisabled()
     expect(screen.getByText(/doesn't look like a Figma URL/i)).toBeInTheDocument()
+  })
+})
+
+describe('SettingsView (Azure DevOps)', () => {
+  it('separate org and token fields combine into org|token PAT', async () => {
+    let calledWith = ''
+    testAuth.mockImplementation(async (_id: string, pat: string) => {
+      calledWith = pat
+      return { ok: true, status: 200, value: true }
+    })
+    listBoards.mockResolvedValue({ ok: true, status: 200, value: [] })
+    renderView()
+    await userEvent.click(screen.getByLabelText(/azure devops/i))
+    await userEvent.type(screen.getByLabelText(/azure devops organization/i), 'myorg')
+    await userEvent.type(screen.getByLabelText(/personal access token/i), 'secret123')
+    await userEvent.click(screen.getByRole('button', { name: /test connection/i }))
+    await waitFor(() => expect(testAuth).toHaveBeenCalled())
+    expect(calledWith).toBe('myorg|secret123')
+  })
+
+  it('shows Project + Work item type as separate dropdowns', async () => {
+    testAuth.mockResolvedValue({ ok: true, status: 200, value: true })
+    listBoards.mockResolvedValue({
+      ok: true,
+      status: 200,
+      value: [
+        { id: 'myorg|ProjA|Bug', label: 'ProjA / Bug' },
+        { id: 'myorg|ProjA|Task', label: 'ProjA / Task' },
+        { id: 'myorg|ProjB|Bug', label: 'ProjB / Bug' },
+      ],
+    })
+    renderView()
+    await userEvent.click(screen.getByLabelText(/azure devops/i))
+    await userEvent.type(screen.getByLabelText(/azure devops organization/i), 'myorg')
+    await userEvent.type(screen.getByLabelText(/personal access token/i), 'secret')
+    await userEvent.click(screen.getByRole('button', { name: /test connection/i }))
+    await waitFor(() => screen.getByLabelText(/^project$/i))
+
+    const projectSelect = screen.getByLabelText(/^project$/i) as HTMLSelectElement
+    const witSelect = screen.getByLabelText(/work item type/i) as HTMLSelectElement
+    // Defaults to first board: ProjA / Bug.
+    expect(projectSelect.value).toBe('ProjA')
+    expect(witSelect.value).toBe('Bug')
+
+    // Switching project switches type list.
+    await userEvent.selectOptions(projectSelect, 'ProjB')
+    expect(projectSelect.value).toBe('ProjB')
+    expect(witSelect.value).toBe('Bug') // only Bug exists for ProjB
+
+    await userEvent.selectOptions(projectSelect, 'ProjA')
+    await userEvent.selectOptions(witSelect, 'Task')
+    expect(witSelect.value).toBe('Task')
+  })
+
+  it('saves with the right boardId for the chosen Project + Type', async () => {
+    testAuth.mockResolvedValue({ ok: true, status: 200, value: true })
+    listBoards.mockResolvedValue({
+      ok: true,
+      status: 200,
+      value: [
+        { id: 'myorg|ProjA|Bug', label: 'ProjA / Bug' },
+        { id: 'myorg|ProjA|Task', label: 'ProjA / Task' },
+      ],
+    })
+    renderView()
+    await userEvent.click(screen.getByLabelText(/azure devops/i))
+    await userEvent.type(screen.getByLabelText(/azure devops organization/i), 'myorg')
+    await userEvent.type(screen.getByLabelText(/personal access token/i), 'secret')
+    await userEvent.click(screen.getByRole('button', { name: /test connection/i }))
+    await waitFor(() => screen.getByLabelText(/^project$/i))
+    await userEvent.selectOptions(screen.getByLabelText(/work item type/i), 'Task')
+    await userEvent.type(
+      screen.getByLabelText(/figma file url/i),
+      'https://www.figma.com/design/abc123/My-File',
+    )
+    await userEvent.click(screen.getByRole('button', { name: /^save$/i }))
+    expect(onSave).toHaveBeenCalledWith({
+      providerId: 'azure',
+      pat: 'myorg|secret',
+      config: {
+        providerId: 'azure',
+        boardId: 'myorg|ProjA|Task',
+        boardLabel: 'ProjA / Task',
+        fileKey: 'abc123',
+      },
+    })
+  })
+
+  it('prefills org and token fields from an existing org|token PAT', () => {
+    renderView({ providerId: 'azure', pat: 'myorg|abc123' })
+    const orgInput = screen.getByLabelText(/azure devops organization/i) as HTMLInputElement
+    const tokenInput = screen.getByLabelText(/personal access token/i) as HTMLInputElement
+    expect(orgInput.value).toBe('myorg')
+    expect(tokenInput.value).toBe('abc123')
   })
 })
 

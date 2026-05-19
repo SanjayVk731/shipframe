@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { Button } from '../components/Button'
 import { ErrorBanner } from '../components/ErrorBanner'
 import { Input } from '../components/Input'
@@ -29,6 +29,17 @@ export function parseFileKey(input: string): string | null {
   return m?.[1] ?? null
 }
 
+/**
+ * Parses an Azure stored PAT (`org|token`) into the visible fields used in this view.
+ * Notion PATs pass through unchanged in the `token` field.
+ */
+function splitInitialPat(providerId: ProviderId | null, pat: string): { org: string; token: string } {
+  if (providerId !== 'azure') return { org: '', token: pat }
+  const idx = pat.indexOf('|')
+  if (idx < 0) return { org: '', token: pat }
+  return { org: pat.slice(0, idx), token: pat.slice(idx + 1) }
+}
+
 type Phase = 'idle' | 'testing' | 'loaded' | 'error'
 
 function reasonToMessage(reason: string): string {
@@ -48,28 +59,81 @@ export function SettingsView({
   onSave,
   onCancel,
 }: Props) {
+  const initialSplit = splitInitialPat(initialProviderId, initialPat)
   const [providerId, setProviderId] = useState<ProviderId | null>(initialProviderId)
-  const [pat, setPat] = useState(initialPat)
+  // For Azure: org + token are separate fields. For Notion: only `token` is used.
+  const [org, setOrg] = useState(initialSplit.org)
+  const [token, setToken] = useState(initialSplit.token)
   const [phase, setPhase] = useState<Phase>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [boards, setBoards] = useState<Board[]>([])
   const [boardId, setBoardId] = useState<string>('')
-  // The user pastes the file URL; we cache the parsed key for the save payload.
-  const [fileUrl, setFileUrl] = useState(initialFileKey ? `https://www.figma.com/design/${initialFileKey}/` : '')
+  const [fileUrl, setFileUrl] = useState(
+    initialFileKey ? `https://www.figma.com/design/${initialFileKey}/` : '',
+  )
   const parsedFileKey = parseFileKey(fileUrl)
 
+  // The string the provider layer expects.
+  const composedPat = providerId === 'azure' ? `${org.trim()}|${token}` : token
+
+  // For Azure: derive Project list + Type list from the boards array. Each
+  // board.id has the shape `org|project|workItemType`.
+  const { projects, workItemTypesForProject, selectedProject, selectedWorkItemType } =
+    useMemo(() => {
+      if (providerId !== 'azure' || boards.length === 0) {
+        return {
+          projects: [] as string[],
+          workItemTypesForProject: [] as string[],
+          selectedProject: '',
+          selectedWorkItemType: '',
+        }
+      }
+      const projSet = new Set<string>()
+      for (const b of boards) {
+        const [, p] = b.id.split('|')
+        if (p) projSet.add(p)
+      }
+      const projs = Array.from(projSet).sort()
+      const [, currentProj, currentWit] = boardId.split('|')
+      const witForProj = boards
+        .filter((b) => b.id.split('|')[1] === currentProj)
+        .map((b) => b.id.split('|')[2] ?? '')
+        .filter((w) => w.length > 0)
+      return {
+        projects: projs,
+        workItemTypesForProject: witForProj,
+        selectedProject: currentProj ?? '',
+        selectedWorkItemType: currentWit ?? '',
+      }
+    }, [providerId, boards, boardId])
+
+  function onChangeProject(nextProject: string) {
+    // Pick the first work item type available for that project.
+    const firstBoard = boards.find((b) => b.id.split('|')[1] === nextProject)
+    if (firstBoard) setBoardId(firstBoard.id)
+  }
+
+  function onChangeWorkItemType(nextWit: string) {
+    const next = boards.find(
+      (b) => b.id.split('|')[1] === selectedProject && b.id.split('|')[2] === nextWit,
+    )
+    if (next) setBoardId(next.id)
+  }
+
   async function onTest() {
-    if (!providerId || !pat) return
+    if (!providerId) return
+    if (providerId === 'azure' && (!org.trim() || !token)) return
+    if (providerId === 'notion' && !token) return
     setPhase('testing')
     setErrorMessage(null)
     try {
-      const auth = await testAuth(providerId, pat)
+      const auth = await testAuth(providerId, composedPat)
       if (!auth.ok) {
         setPhase('error')
         setErrorMessage(reasonToMessage(auth.reason))
         return
       }
-      const boardsRes = await listBoards(providerId, pat)
+      const boardsRes = await listBoards(providerId, composedPat)
       if (!boardsRes.ok) {
         setPhase('error')
         setErrorMessage(reasonToMessage(boardsRes.reason))
@@ -85,12 +149,12 @@ export function SettingsView({
   }
 
   function onClickSave() {
-    if (!providerId || !pat || !boardId || !parsedFileKey) return
+    if (!providerId || !composedPat || !boardId || !parsedFileKey) return
     const board = boards.find((b) => b.id === boardId)
     if (!board) return
     onSave({
       providerId,
-      pat,
+      pat: composedPat,
       config: {
         providerId,
         boardId: board.id,
@@ -100,16 +164,19 @@ export function SettingsView({
     })
   }
 
-  const canTest = !!providerId && pat.length > 0 && phase !== 'testing'
+  const credentialsComplete =
+    providerId === 'azure' ? org.trim().length > 0 && token.length > 0 : token.length > 0
+  const canTest = !!providerId && credentialsComplete && phase !== 'testing'
   const canSave = !!boardId && !!parsedFileKey
 
   return (
     <div>
       <h2>Settings</h2>
+
       {errorMessage && <ErrorBanner message={errorMessage} />}
 
       <fieldset className="radio-group">
-        <legend>Provider</legend>
+        <legend>Where do tickets go?</legend>
         <label className="radio-row">
           <input
             type="radio"
@@ -132,58 +199,112 @@ export function SettingsView({
         </label>
       </fieldset>
 
-      <Input
-        label={
-          providerId === 'azure'
-            ? 'Personal access token (format: org|token)'
-            : 'Personal access token'
-        }
-        value={pat}
-        onChange={setPat}
-        type="password"
-        placeholder={providerId === 'azure' ? 'myorg|abcd…' : 'secret_…'}
-      />
+      {providerId === 'azure' && (
+        <>
+          <Input
+            label="Azure DevOps organization"
+            value={org}
+            onChange={setOrg}
+            placeholder="e.g. myorg"
+          />
+          <Input
+            label="Personal access token"
+            value={token}
+            onChange={setToken}
+            type="password"
+            placeholder="paste your PAT"
+          />
+        </>
+      )}
 
-      <div className="row">
-        <Button variant="primary" disabled={!canTest} onClick={onTest}>
-          {phase === 'testing' ? 'Testing…' : 'Test connection'}
-        </Button>
-      </div>
+      {providerId === 'notion' && (
+        <Input
+          label="Notion integration token"
+          value={token}
+          onChange={setToken}
+          type="password"
+          placeholder="secret_…"
+        />
+      )}
+
+      {providerId && (
+        <div className="row" style={{ marginBottom: 12 }}>
+          <Button variant="primary" disabled={!canTest} onClick={onTest}>
+            {phase === 'testing' ? 'Testing…' : 'Test connection'}
+          </Button>
+        </div>
+      )}
 
       {phase === 'loaded' && boards.length === 0 && providerId === 'notion' && (
-        <p style={{ marginTop: 10 }}>
+        <p style={{ marginTop: 10, opacity: 0.85 }}>
           No databases found. In Notion, open your target database → ••• → Connections
           and share each target database with this integration.
         </p>
       )}
 
       {phase === 'loaded' && boards.length > 0 && (
-        <div style={{ marginTop: 10 }}>
-          <div className="field">
-            <label htmlFor="board">Board</label>
-            <select
-              id="board"
-              value={boardId}
-              onChange={(e) => setBoardId(e.target.value)}
-            >
-              {boards.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.label}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div style={{ marginTop: 4 }}>
+          {providerId === 'notion' && (
+            <div className="field">
+              <label htmlFor="db">Database</label>
+              <select id="db" value={boardId} onChange={(e) => setBoardId(e.target.value)}>
+                {boards.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {providerId === 'azure' && (
+            <>
+              <div className="field">
+                <label htmlFor="project">Project</label>
+                <select
+                  id="project"
+                  value={selectedProject}
+                  onChange={(e) => onChangeProject(e.target.value)}
+                >
+                  {projects.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="wit">Work item type</label>
+                <select
+                  id="wit"
+                  value={selectedWorkItemType}
+                  onChange={(e) => onChangeWorkItemType(e.target.value)}
+                >
+                  {workItemTypesForProject.map((w) => (
+                    <option key={w} value={w}>
+                      {w}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
 
           <Input
-            label="Figma file URL (paste from browser address bar)"
+            label="Figma file URL"
             value={fileUrl}
             onChange={setFileUrl}
             placeholder="https://www.figma.com/design/abc123/My-File"
           />
           {fileUrl.length > 0 && !parsedFileKey && (
             <p style={{ marginTop: -6, marginBottom: 10, opacity: 0.7 }}>
-              That doesn't look like a Figma URL. Make sure it starts with
-              <code> figma.com/design/</code> (or /file/, /board/, /slides/).
+              That doesn't look like a Figma URL. Copy this file's URL from your browser
+              address bar.
+            </p>
+          )}
+          {fileUrl.length === 0 && (
+            <p style={{ marginTop: -6, marginBottom: 10, opacity: 0.7 }}>
+              Copy this file's URL from your browser address bar and paste it here.
             </p>
           )}
 
