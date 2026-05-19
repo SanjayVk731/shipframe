@@ -178,6 +178,9 @@ export function CreateView({
 
       <Input label="Title" value={title} onChange={setTitle} />
       <Input label="Description" value={description} onChange={setDescription} multiline />
+      <p style={{ marginTop: -4, marginBottom: 8, fontSize: 11, opacity: 0.6 }}>
+        Markdown supported: **bold**, *italic*, `code`, [links](url), - lists.
+      </p>
 
       {sectionSet === 'bug' && (
         <>

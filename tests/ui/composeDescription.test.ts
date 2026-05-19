@@ -12,10 +12,13 @@ describe('composeDescription — description field', () => {
     )
   })
 
-  it('escapes HTML in the main description', () => {
-    expect(
-      composeDescription({ main: 'evil <script>alert(1)</script>' }).description,
-    ).toBe('<p>evil &lt;script&gt;alert(1)&lt;/script&gt;</p>')
+  it('strips dangerous HTML (script tags) from the main description', () => {
+    const { description } = composeDescription({
+      main: 'evil <script>alert(1)</script>',
+    })
+    expect(description).not.toContain('<script>')
+    expect(description).not.toContain('alert(1)')
+    expect(description).toContain('evil')
   })
 
   it('preserves user line breaks in the main description as <br>', () => {
@@ -132,13 +135,14 @@ describe('composeDescription — acceptance criteria field', () => {
     expect(acceptanceCriteriaHtml).toBe('<ul><li>one</li><li>two</li></ul>')
   })
 
-  it('escapes HTML in AC items', () => {
+  it('strips dangerous HTML from AC items while keeping the text content', () => {
     const { acceptanceCriteriaHtml } = composeDescription({
       main: '',
-      acceptanceCriteria: '<b>bold</b>',
+      acceptanceCriteria: 'safe item<script>alert(1)</script>',
     })
-    expect(acceptanceCriteriaHtml).not.toContain('<b>bold</b>')
-    expect(acceptanceCriteriaHtml).toContain('&lt;b&gt;bold&lt;/b&gt;')
+    expect(acceptanceCriteriaHtml).not.toContain('<script>')
+    expect(acceptanceCriteriaHtml).not.toContain('alert(1)')
+    expect(acceptanceCriteriaHtml).toContain('<li>safe item</li>')
   })
 })
 
@@ -176,13 +180,103 @@ describe('composeDescription — reproduction steps field', () => {
     expect(reproStepsHtml).not.toMatch(/<li>\d+[.)]/)
   })
 
-  it('escapes HTML in repro items', () => {
+  it('strips dangerous HTML from repro items while keeping the text content', () => {
     const { reproStepsHtml } = composeDescription({
       main: '',
-      reproSteps: 'step with <script>',
+      reproSteps: 'open page<script>alert(1)</script>',
     })
-    expect(reproStepsHtml).toContain('&lt;script&gt;')
     expect(reproStepsHtml).not.toContain('<script>')
+    expect(reproStepsHtml).not.toContain('alert(1)')
+    expect(reproStepsHtml).toContain('<li>open page</li>')
+  })
+})
+
+describe('composeDescription — markdown rendering', () => {
+  it('renders bold and italic in the main description', () => {
+    const { description } = composeDescription({
+      main: 'this is **important** and *subtle*',
+    })
+    expect(description).toContain('<strong>important</strong>')
+    expect(description).toContain('<em>subtle</em>')
+  })
+
+  it('renders inline code in the main description', () => {
+    const { description } = composeDescription({
+      main: 'use `figma.getNodeByIdAsync` for lookups',
+    })
+    expect(description).toContain('<code>figma.getNodeByIdAsync</code>')
+  })
+
+  it('renders markdown links in the main description', () => {
+    const { description } = composeDescription({
+      main: 'see [the docs](https://example.com/docs) for more',
+    })
+    expect(description).toContain(
+      '<a href="https://example.com/docs">the docs</a>',
+    )
+  })
+
+  it('renders markdown formatting inside acceptance criteria items', () => {
+    const { acceptanceCriteriaHtml } = composeDescription({
+      main: '',
+      acceptanceCriteria: 'user can **save** their progress\nempty form shows `error`',
+    })
+    expect(acceptanceCriteriaHtml).toContain(
+      '<li>user can <strong>save</strong> their progress</li>',
+    )
+    expect(acceptanceCriteriaHtml).toContain(
+      '<li>empty form shows <code>error</code></li>',
+    )
+  })
+
+  it('renders markdown formatting inside reproduction steps', () => {
+    const { reproStepsHtml } = composeDescription({
+      main: '',
+      reproSteps: 'open **Settings**\nclick the [Save](https://x) button',
+    })
+    expect(reproStepsHtml).toContain('<li>open <strong>Settings</strong></li>')
+    expect(reproStepsHtml).toContain(
+      '<li>click the <a href="https://x">Save</a> button</li>',
+    )
+  })
+
+  it('strips javascript: URLs from markdown links via sanitization', () => {
+    const { description } = composeDescription({
+      main: 'evil [click me](javascript:alert(1))',
+    })
+    expect(description).not.toContain('javascript:')
+    expect(description).not.toMatch(/href=["']javascript/i)
+  })
+
+  it('strips raw HTML / script tags pasted into markdown', () => {
+    const { description } = composeDescription({
+      main: '<script>alert(1)</script><img src=x onerror=y>',
+    })
+    expect(description).not.toContain('<script>')
+    expect(description).not.toContain('onerror')
+  })
+
+  it('drops markdown image syntax (no external image embeds in Azure)', () => {
+    const { description } = composeDescription({
+      main: 'see ![diagram](https://example.com/diagram.png) below',
+    })
+    expect(description).not.toContain('<img')
+    expect(description).not.toContain('diagram.png')
+  })
+
+  it('still preserves the prominent Figma link untouched', () => {
+    const { description } = composeDescription({
+      main: '',
+      figmaLink: {
+        url: 'https://figma.com/file/abc?node-id=1-2',
+        label: 'Hero frame',
+      },
+    })
+    expect(description).toContain('<strong>Figma:</strong>')
+    expect(description).toContain(
+      'href="https://figma.com/file/abc?node-id=1-2"',
+    )
+    expect(description).toContain('>Hero frame</a>')
   })
 })
 

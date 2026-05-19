@@ -1,3 +1,6 @@
+import { marked } from 'marked'
+import DOMPurify from 'isomorphic-dompurify'
+
 export interface StructuredDescriptionInput {
   main: string
   reproSteps?: string
@@ -22,13 +25,64 @@ export interface ComposedDescription {
   reproStepsHtml: string
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
+// Markdown processing:
+// - breaks: true → single newlines become <br>, matching textarea expectations.
+// - gfm: true   → GFM extras (autolinks, strikethrough) at low cost.
+// - The library no longer mangles emails or runs a built-in sanitizer.
+// We rely on DOMPurify (below) as the sole defense against XSS / image embeds.
+marked.setOptions({ gfm: true, breaks: true })
+
+// Sanitizer config — common to all callers. We explicitly forbid <img> because
+// Azure DevOps renders external images inconsistently and they're a privacy
+// leak (the URL gets fetched by anyone viewing the work item). We allow only
+// a conservative tag set; everything else is stripped.
+const ALLOWED_TAGS = [
+  'p',
+  'br',
+  'strong',
+  'em',
+  'b',
+  'i',
+  'code',
+  'pre',
+  'a',
+  'ul',
+  'ol',
+  'li',
+  'h2',
+  'h3',
+  'blockquote',
+]
+const ALLOWED_ATTR = ['href']
+
+function sanitize(html: string): string {
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS,
+    ALLOWED_ATTR,
+    FORBID_TAGS: ['img', 'script', 'style', 'iframe'],
+  })
+}
+
+/**
+ * Render a multi-line user-input string as a block of markdown → HTML, then
+ * sanitize. Trailing whitespace from marked is trimmed for stable composition.
+ */
+function renderMarkdownBlock(s: string): string {
+  const trimmed = s.trim()
+  if (trimmed.length === 0) return ''
+  const html = marked.parse(trimmed) as string
+  return sanitize(html.trim())
+}
+
+/**
+ * Render a single line as inline markdown (no <p> wrapper), then sanitize.
+ * Used inside <li> items where we control the wrapping.
+ */
+function renderMarkdownInline(s: string): string {
+  const trimmed = s.trim()
+  if (trimmed.length === 0) return ''
+  const html = marked.parseInline(trimmed) as string
+  return sanitize(html.trim())
 }
 
 // Strip a leading markdown-style list marker so "- A" / "* A" / "• A" / "1. A"
@@ -43,28 +97,38 @@ function splitNonEmptyLines(s: string): string[] {
     .filter((line) => line.length > 0)
 }
 
-function paragraph(text: string): string {
-  return `<p>${escapeHtml(text).replace(/\n/g, '<br>')}</p>`
-}
-
-function paragraphSection(heading: string, body: string): string {
-  const trimmed = body.trim()
-  if (trimmed.length === 0) return ''
-  return `<h2>${heading}</h2>${paragraph(trimmed)}`
-}
-
 function listHtml(body: string, ordered: boolean): string {
   const items = splitNonEmptyLines(body)
   if (items.length === 0) return ''
   const tag = ordered ? 'ol' : 'ul'
-  const lis = items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')
+  const lis = items.map((item) => `<li>${renderMarkdownInline(item)}</li>`).join('')
   return `<${tag}>${lis}</${tag}>`
 }
 
+function paragraphSection(heading: string, body: string): string {
+  const rendered = renderMarkdownBlock(body)
+  if (rendered.length === 0) return ''
+  return `<h2>${heading}</h2>${rendered}`
+}
+
 function figmaLinkParagraph(link: { url: string; label: string }): string {
-  const href = escapeHtml(link.url)
-  const label = escapeHtml(link.label)
-  return `<p><strong>Figma:</strong> <a href="${href}">${label}</a></p>`
+  // Render via DOMPurify to neutralize javascript: URLs even though label/url
+  // come from our own code today — the trust boundary stays consistent.
+  const html = `<p><strong>Figma:</strong> <a href="${link.url}">${escapeForAttr(
+    link.label,
+  )}</a></p>`
+  return sanitize(html)
+}
+
+// Minimal escape for embedding the frame name as link text (not an attribute).
+// Anything dangerous gets caught by DOMPurify below anyway.
+function escapeForAttr(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
 export function composeDescription(
@@ -72,8 +136,8 @@ export function composeDescription(
 ): ComposedDescription {
   const descParts: string[] = []
   if (input.figmaLink) descParts.push(figmaLinkParagraph(input.figmaLink))
-  const main = input.main.trim()
-  if (main.length > 0) descParts.push(paragraph(main))
+  const mainHtml = renderMarkdownBlock(input.main)
+  if (mainHtml.length > 0) descParts.push(mainHtml)
   descParts.push(paragraphSection('Expected behavior', input.expected ?? ''))
   descParts.push(paragraphSection('Actual behavior', input.actual ?? ''))
   descParts.push(paragraphSection('Out of scope', input.outOfScope ?? ''))
