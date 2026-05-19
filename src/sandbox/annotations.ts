@@ -45,6 +45,18 @@ function categoryForProvider(providerId: ProviderId): string {
   return providerId === 'azure' ? 'azure' : 'notion'
 }
 
+export async function clearAnnotation(nodeId: string): Promise<SyncResult> {
+  if (typeof (figma as unknown as { annotations?: unknown }).annotations === 'undefined') {
+    return { ok: false, reason: 'api-unavailable' }
+  }
+  const node = (await figma.getNodeByIdAsync(nodeId)) as
+    | (SceneNode & { annotations: AnnotationEntry[] })
+    | null
+  if (!node) return { ok: false, reason: 'node-missing' }
+  node.annotations = (node.annotations ?? []).filter((a) => !isOursLabel(a.label))
+  return { ok: true }
+}
+
 export async function syncAnnotation(
   nodeId: string,
   input: BuildLabelInput,

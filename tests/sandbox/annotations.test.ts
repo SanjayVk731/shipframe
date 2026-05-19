@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isOursLabel, buildLabel, syncAnnotation } from '../../src/sandbox/annotations'
+import { isOursLabel, buildLabel, syncAnnotation, clearAnnotation } from '../../src/sandbox/annotations'
 import { installFigmaMock } from '../helpers/figmaMock'
 
 describe('isOursLabel', () => {
@@ -166,5 +166,28 @@ describe('syncAnnotation', () => {
       title: 't',
     })
     expect(result).toEqual({ ok: false, reason: 'api-unavailable' })
+  })
+})
+
+describe('clearAnnotation', () => {
+  it('removes all ours-pins, preserves manuals', async () => {
+    const { makeNode } = installFigmaMock()
+    const node = makeNode('1:2', 'FRAME', 'Login')
+    node.annotations = [
+      { label: 'Designer note', categoryId: 'general' },
+      { label: 'AZURE-1234', categoryId: 'azure' },
+      { label: 'Notion · X · #aabbccdd', categoryId: 'notion' },
+    ]
+    const result = await clearAnnotation('1:2')
+    expect(result).toEqual({ ok: true })
+    expect(node.annotations).toEqual([
+      { label: 'Designer note', categoryId: 'general' },
+    ])
+  })
+
+  it('returns node-missing when node is gone', async () => {
+    installFigmaMock()
+    const result = await clearAnnotation('99:99')
+    expect(result).toEqual({ ok: false, reason: 'node-missing' })
   })
 })
