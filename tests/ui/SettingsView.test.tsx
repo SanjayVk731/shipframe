@@ -13,12 +13,18 @@ beforeEach(() => {
   listBoards.mockReset()
 })
 
-function renderView(initial?: Partial<{ providerId: 'notion' | 'azure'; pat: string; fileKey: string }>) {
+function renderView(initial?: Partial<{
+  providerId: 'notion' | 'azure'
+  pat: string
+  fileKey: string
+  board: { id: string; label: string } | null
+}>) {
   return render(
     <SettingsView
       initialProviderId={initial?.providerId ?? null}
       initialPat={initial?.pat ?? ''}
       initialFileKey={initial?.fileKey ?? ''}
+      initialBoard={initial?.board ?? null}
       onSave={onSave}
       testAuth={testAuth}
       listBoards={listBoards}
@@ -220,6 +226,35 @@ describe('SettingsView (Azure DevOps)', () => {
     const tokenInput = screen.getByLabelText(/personal access token/i) as HTMLInputElement
     expect(orgInput.value).toBe('myorg')
     expect(tokenInput.value).toBe('abc123')
+  })
+
+  it('shows the saved Project + Type immediately without re-testing', () => {
+    renderView({
+      providerId: 'azure',
+      pat: 'myorg|abc123',
+      fileKey: 'fk',
+      board: { id: 'myorg|PlatformNX|Bug', label: 'PlatformNX / Bug' },
+    })
+    const projectSelect = screen.getByLabelText(/^project$/i) as HTMLSelectElement
+    const witSelect = screen.getByLabelText(/work item type/i) as HTMLSelectElement
+    expect(projectSelect.value).toBe('PlatformNX')
+    expect(witSelect.value).toBe('Bug')
+    // Save is available immediately — no Test connection required.
+    expect(screen.getByRole('button', { name: /^save$/i })).toBeEnabled()
+  })
+})
+
+describe('SettingsView persistence (Notion)', () => {
+  it('shows the saved Database immediately without re-testing', () => {
+    renderView({
+      providerId: 'notion',
+      pat: 'secret-token',
+      fileKey: 'fk',
+      board: { id: 'db-1', label: 'Bugs' },
+    })
+    const dbSelect = screen.getByLabelText(/database/i) as HTMLSelectElement
+    expect(dbSelect.value).toBe('db-1')
+    expect(screen.getByRole('button', { name: /^save$/i })).toBeEnabled()
   })
 })
 

@@ -207,6 +207,11 @@ export function App() {
         initialProviderId={fileConfig?.providerId ?? null}
         initialPat={fileConfig ? pats[fileConfig.providerId] ?? '' : ''}
         initialFileKey={fileConfig?.fileKey ?? ''}
+        initialBoard={
+          fileConfig
+            ? { id: fileConfig.boardId, label: fileConfig.boardLabel }
+            : null
+        }
         testAuth={testAuth}
         listBoards={listBoards}
         onSave={onSaveSettings}

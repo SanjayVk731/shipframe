@@ -9,6 +9,13 @@ interface Props {
   initialProviderId: ProviderId | null
   initialPat: string
   initialFileKey: string
+  /**
+   * The previously-saved board (id + label). When provided, we seed the boards
+   * list with this single entry so the Project + Work item type dropdowns show
+   * the saved selection immediately, without forcing the user to re-test the
+   * connection. Clicking "Test connection" still works to refresh the full list.
+   */
+  initialBoard?: { id: string; label: string } | null
   testAuth: (providerId: ProviderId, pat: string) => Promise<Result<true>>
   listBoards: (providerId: ProviderId, pat: string) => Promise<Result<Board[]>>
   onSave: (payload: { providerId: ProviderId; pat: string; config: FileConfig }) => void
@@ -54,6 +61,7 @@ export function SettingsView({
   initialProviderId,
   initialPat,
   initialFileKey,
+  initialBoard,
   testAuth,
   listBoards,
   onSave,
@@ -64,10 +72,14 @@ export function SettingsView({
   // For Azure: org + token are separate fields. For Notion: only `token` is used.
   const [org, setOrg] = useState(initialSplit.org)
   const [token, setToken] = useState(initialSplit.token)
-  const [phase, setPhase] = useState<Phase>('idle')
+  // The phase starts at 'loaded' when we have a saved board to display; the
+  // user can still re-run Test connection to refresh.
+  const [phase, setPhase] = useState<Phase>(initialBoard ? 'loaded' : 'idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [boards, setBoards] = useState<Board[]>([])
-  const [boardId, setBoardId] = useState<string>('')
+  // Seed boards from the saved selection so dropdowns show the right value
+  // immediately. Test connection replaces this with the fresh list.
+  const [boards, setBoards] = useState<Board[]>(initialBoard ? [initialBoard] : [])
+  const [boardId, setBoardId] = useState<string>(initialBoard?.id ?? '')
   const [fileUrl, setFileUrl] = useState(
     initialFileKey ? `https://www.figma.com/design/${initialFileKey}/` : '',
   )
