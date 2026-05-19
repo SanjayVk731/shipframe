@@ -9,7 +9,9 @@ function isFileConfig(v: unknown): v is FileConfig {
   return (
     idOk &&
     typeof o.boardId === 'string' &&
-    typeof o.boardLabel === 'string'
+    typeof o.boardLabel === 'string' &&
+    typeof o.fileKey === 'string' &&
+    o.fileKey.length > 0
   )
 }
 

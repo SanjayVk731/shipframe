@@ -38,7 +38,6 @@ describe('protocol guards', () => {
       | 'set-file-config'
       | 'get-pat'
       | 'set-pat'
-      | 'get-file-info'
       | 'open-external'
     >()
   })

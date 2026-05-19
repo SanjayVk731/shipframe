@@ -8,9 +8,22 @@ import type { Result } from '../../providers/types'
 interface Props {
   initialProviderId: ProviderId | null
   initialPat: string
+  initialFileKey: string
   testAuth: (providerId: ProviderId, pat: string) => Promise<Result<true>>
   listBoards: (providerId: ProviderId, pat: string) => Promise<Result<Board[]>>
   onSave: (payload: { providerId: ProviderId; pat: string; config: FileConfig }) => void
+}
+
+/**
+ * Parses the file key from a Figma URL like:
+ *   https://www.figma.com/design/zmJ9R5ZqtHnFWrRD72cKYT/Untitled?node-id=...
+ *   https://www.figma.com/file/abc123/My-File
+ *   https://www.figma.com/board/xyz789/Board   (FigJam)
+ * Returns null if the input doesn't look like a Figma URL.
+ */
+export function parseFileKey(input: string): string | null {
+  const m = input.match(/figma\.com\/(?:file|design|board|slides|make)\/([A-Za-z0-9]+)/i)
+  return m?.[1] ?? null
 }
 
 type Phase = 'idle' | 'testing' | 'loaded' | 'error'
@@ -26,6 +39,7 @@ function reasonToMessage(reason: string): string {
 export function SettingsView({
   initialProviderId,
   initialPat,
+  initialFileKey,
   testAuth,
   listBoards,
   onSave,
@@ -36,6 +50,9 @@ export function SettingsView({
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [boards, setBoards] = useState<Board[]>([])
   const [boardId, setBoardId] = useState<string>('')
+  // The user pastes the file URL; we cache the parsed key for the save payload.
+  const [fileUrl, setFileUrl] = useState(initialFileKey ? `https://www.figma.com/design/${initialFileKey}/` : '')
+  const parsedFileKey = parseFileKey(fileUrl)
 
   async function onTest() {
     if (!providerId || !pat) return
@@ -64,17 +81,23 @@ export function SettingsView({
   }
 
   function onClickSave() {
-    if (!providerId || !pat || !boardId) return
+    if (!providerId || !pat || !boardId || !parsedFileKey) return
     const board = boards.find((b) => b.id === boardId)
     if (!board) return
     onSave({
       providerId,
       pat,
-      config: { providerId, boardId: board.id, boardLabel: board.label },
+      config: {
+        providerId,
+        boardId: board.id,
+        boardLabel: board.label,
+        fileKey: parsedFileKey,
+      },
     })
   }
 
   const canTest = !!providerId && pat.length > 0 && phase !== 'testing'
+  const canSave = !!boardId && !!parsedFileKey
 
   return (
     <div>
@@ -131,24 +154,38 @@ export function SettingsView({
       )}
 
       {phase === 'loaded' && boards.length > 0 && (
-        <div className="field" style={{ marginTop: 10 }}>
-          <label htmlFor="board">Board</label>
-          <select
-            id="board"
-            value={boardId}
-            onChange={(e) => setBoardId(e.target.value)}
-          >
-            {boards.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.label}
-              </option>
-            ))}
-          </select>
-          <div style={{ marginTop: 10 }}>
-            <Button variant="primary" onClick={onClickSave}>
-              Save
-            </Button>
+        <div style={{ marginTop: 10 }}>
+          <div className="field">
+            <label htmlFor="board">Board</label>
+            <select
+              id="board"
+              value={boardId}
+              onChange={(e) => setBoardId(e.target.value)}
+            >
+              {boards.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.label}
+                </option>
+              ))}
+            </select>
           </div>
+
+          <Input
+            label="Figma file URL (paste from browser address bar)"
+            value={fileUrl}
+            onChange={setFileUrl}
+            placeholder="https://www.figma.com/design/abc123/My-File"
+          />
+          {fileUrl.length > 0 && !parsedFileKey && (
+            <p style={{ marginTop: -6, marginBottom: 10, opacity: 0.7 }}>
+              That doesn't look like a Figma URL. Make sure it starts with
+              <code> figma.com/design/</code> (or /file/, /board/, /slides/).
+            </p>
+          )}
+
+          <Button variant="primary" disabled={!canSave} onClick={onClickSave}>
+            Save
+          </Button>
         </div>
       )}
     </div>

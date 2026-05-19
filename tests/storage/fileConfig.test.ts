@@ -16,11 +16,17 @@ describe('fileConfig', () => {
   })
 
   it('round-trips config', () => {
-    setFileConfig({ providerId: 'azure', boardId: 'o|p|t|Bug', boardLabel: 'P / T / Bug' })
+    setFileConfig({
+      providerId: 'azure',
+      boardId: 'o|p|Bug',
+      boardLabel: 'P / Bug',
+      fileKey: 'abc123',
+    })
     expect(getFileConfig()).toEqual({
       providerId: 'azure',
-      boardId: 'o|p|t|Bug',
-      boardLabel: 'P / T / Bug',
+      boardId: 'o|p|Bug',
+      boardLabel: 'P / Bug',
+      fileKey: 'abc123',
     })
   })
 
@@ -30,13 +36,29 @@ describe('fileConfig', () => {
   })
 
   it('clearFileConfig wipes it', () => {
-    setFileConfig({ providerId: 'notion', boardId: 'db-1', boardLabel: 'Bugs' })
+    setFileConfig({
+      providerId: 'notion',
+      boardId: 'db-1',
+      boardLabel: 'Bugs',
+      fileKey: 'abc123',
+    })
     clearFileConfig()
     expect(getFileConfig()).toBeNull()
   })
 
   it('returns null when stored JSON has wrong shape', () => {
-    figma.root.setPluginData('fileConfig', JSON.stringify({ providerId: 'jira', boardId: 'x', boardLabel: 'y' }))
+    figma.root.setPluginData(
+      'fileConfig',
+      JSON.stringify({ providerId: 'jira', boardId: 'x', boardLabel: 'y', fileKey: 'k' }),
+    )
+    expect(getFileConfig()).toBeNull()
+  })
+
+  it('returns null when stored JSON is missing fileKey (older config)', () => {
+    figma.root.setPluginData(
+      'fileConfig',
+      JSON.stringify({ providerId: 'notion', boardId: 'db', boardLabel: 'B' }),
+    )
     expect(getFileConfig()).toBeNull()
   })
 })

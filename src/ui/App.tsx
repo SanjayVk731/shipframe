@@ -20,14 +20,10 @@ interface PatCache {
   azure: string | null
 }
 
-function deepLinkFor(fileKey: string | null, nodeId: string): string {
+function deepLinkFor(fileKey: string, nodeId: string): string {
   // Figma node IDs use ':' internally (e.g. '1:2') but '-' in URLs (e.g. '1-2').
   const urlNodeId = nodeId.replace(/:/g, '-')
-  const url = !fileKey
-    ? `https://www.figma.com/?node-id=${encodeURIComponent(urlNodeId)}`
-    : `https://www.figma.com/design/${fileKey}/?node-id=${encodeURIComponent(urlNodeId)}`
-  console.log('[figma-tickets] deepLinkFor', { fileKey, nodeId, urlNodeId, url })
-  return url
+  return `https://www.figma.com/design/${fileKey}/?node-id=${encodeURIComponent(urlNodeId)}`
 }
 
 export function App() {
@@ -36,28 +32,22 @@ export function App() {
   const [fileConfig, setFileConfig] = useState<FileConfig | null>(null)
   const [pats, setPats] = useState<PatCache>({ notion: null, azure: null })
   const [thumb, setThumb] = useState<Uint8Array | null>(null)
-  const [fileKey, setFileKey] = useState<string | null>(null)
 
-  // Load file config + persisted PATs + file key once on mount.
+  // Load file config + persisted PATs once on mount.
   useEffect(() => {
     void (async () => {
       const cfgRes = await sandbox.request({ type: 'get-file-config' })
       const cfg =
         cfgRes.type === 'file-config' ? cfgRes.config : null
       setFileConfig(cfg)
-      const [notionPat, azurePat, fileInfo] = await Promise.all([
+      const [notionPat, azurePat] = await Promise.all([
         sandbox.request({ type: 'get-pat', providerId: 'notion' }),
         sandbox.request({ type: 'get-pat', providerId: 'azure' }),
-        sandbox.request({ type: 'get-file-info' }),
       ])
       setPats({
         notion: notionPat.type === 'pat' ? notionPat.pat : null,
         azure: azurePat.type === 'pat' ? azurePat.pat : null,
       })
-      if (fileInfo.type === 'file-info') {
-        console.log('[figma-tickets] fileKey:', fileInfo.fileKey, 'fileName:', fileInfo.fileName)
-        setFileKey(fileInfo.fileKey)
-      }
       setMode(cfg ? selectMode(sandbox.selection) : 'settings')
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -184,6 +174,7 @@ export function App() {
       <SettingsView
         initialProviderId={fileConfig?.providerId ?? null}
         initialPat={fileConfig ? pats[fileConfig.providerId] ?? '' : ''}
+        initialFileKey={fileConfig?.fileKey ?? ''}
         testAuth={testAuth}
         listBoards={listBoards}
         onSave={onSaveSettings}
@@ -217,7 +208,7 @@ export function App() {
       boardLabel={fileConfig.boardLabel}
       nodeName={sandbox.selection.nodeName}
       thumbnail={thumb}
-      figmaDeepLink={deepLinkFor(fileKey, sandbox.selection.nodeId)}
+      figmaDeepLink={deepLinkFor(fileConfig.fileKey, sandbox.selection.nodeId)}
       getFieldSchema={getFieldSchema}
       onCreate={onCreate}
     />

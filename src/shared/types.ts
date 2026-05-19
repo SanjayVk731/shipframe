@@ -11,6 +11,12 @@ export interface FileConfig {
   providerId: ProviderId
   boardId: string
   boardLabel: string
+  /**
+   * The Figma file key parsed from the file's URL. Required because
+   * `figma.fileKey` is gated to private plugins and returns null in the
+   * Community/public plugin runtime, so we ask the user to paste the URL once.
+   */
+  fileKey: string
 }
 
 export type SelectionState =

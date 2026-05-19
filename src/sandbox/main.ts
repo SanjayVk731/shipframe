@@ -111,15 +111,6 @@ figma.ui.onmessage = async (raw: unknown) => {
         post({ type: 'ack', requestId: msg.requestId })
         return
       }
-      case 'get-file-info': {
-        post({
-          type: 'file-info',
-          fileKey: figma.fileKey ?? null,
-          fileName: figma.root.name,
-          requestId: msg.requestId,
-        })
-        return
-      }
       case 'open-external': {
         figma.openExternal(msg.url)
         return

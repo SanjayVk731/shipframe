@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { SettingsView } from '../../src/ui/views/SettingsView'
+import { SettingsView, parseFileKey } from '../../src/ui/views/SettingsView'
 
 const onSave = vi.fn()
 const testAuth = vi.fn()
@@ -18,6 +18,7 @@ function renderView() {
     <SettingsView
       initialProviderId={null}
       initialPat=""
+      initialFileKey=""
       onSave={onSave}
       testAuth={testAuth}
       listBoards={listBoards}
@@ -77,7 +78,7 @@ describe('SettingsView', () => {
     )
   })
 
-  it('saves selected board', async () => {
+  it('saves selected board with parsed file key', async () => {
     testAuth.mockResolvedValue({ ok: true, status: 200, value: true })
     listBoards.mockResolvedValue({
       ok: true,
@@ -90,11 +91,59 @@ describe('SettingsView', () => {
     await userEvent.click(screen.getByRole('button', { name: /test connection/i }))
     await waitFor(() => screen.getByText('Bugs'))
     await userEvent.selectOptions(screen.getByLabelText(/board/i), 'db-1')
+    await userEvent.type(
+      screen.getByLabelText(/figma file url/i),
+      'https://www.figma.com/design/abc123/My-File',
+    )
     await userEvent.click(screen.getByRole('button', { name: /^save$/i }))
     expect(onSave).toHaveBeenCalledWith({
       providerId: 'notion',
       pat: 'secret',
-      config: { providerId: 'notion', boardId: 'db-1', boardLabel: 'Bugs' },
+      config: {
+        providerId: 'notion',
+        boardId: 'db-1',
+        boardLabel: 'Bugs',
+        fileKey: 'abc123',
+      },
     })
+  })
+
+  it('Save is disabled until a valid Figma URL is pasted', async () => {
+    testAuth.mockResolvedValue({ ok: true, status: 200, value: true })
+    listBoards.mockResolvedValue({
+      ok: true,
+      status: 200,
+      value: [{ id: 'db-1', label: 'Bugs' }],
+    })
+    renderView()
+    await userEvent.click(screen.getByLabelText(/notion/i))
+    await userEvent.type(screen.getByLabelText(/personal access token/i), 'secret')
+    await userEvent.click(screen.getByRole('button', { name: /test connection/i }))
+    await waitFor(() => screen.getByText('Bugs'))
+    await userEvent.selectOptions(screen.getByLabelText(/board/i), 'db-1')
+    expect(screen.getByRole('button', { name: /^save$/i })).toBeDisabled()
+    await userEvent.type(
+      screen.getByLabelText(/figma file url/i),
+      'not a url',
+    )
+    expect(screen.getByRole('button', { name: /^save$/i })).toBeDisabled()
+    expect(screen.getByText(/doesn't look like a Figma URL/i)).toBeInTheDocument()
+  })
+})
+
+describe('parseFileKey', () => {
+  it('parses /design/ URLs', () => {
+    expect(parseFileKey('https://www.figma.com/design/abc123/Untitled?node-id=1-2')).toBe('abc123')
+  })
+  it('parses /file/ URLs (legacy)', () => {
+    expect(parseFileKey('https://www.figma.com/file/xyz789/My-File')).toBe('xyz789')
+  })
+  it('parses /board/ URLs (FigJam)', () => {
+    expect(parseFileKey('https://www.figma.com/board/bk1/Board')).toBe('bk1')
+  })
+  it('returns null for non-Figma URLs', () => {
+    expect(parseFileKey('https://example.com/design/abc/foo')).toBeNull()
+    expect(parseFileKey('not a url at all')).toBeNull()
+    expect(parseFileKey('')).toBeNull()
   })
 })
