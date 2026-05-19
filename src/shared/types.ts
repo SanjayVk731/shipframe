@@ -28,6 +28,8 @@ export type SelectionState =
       nodeId: string
       nodeName: string
       link: TicketLink | null
+      annotationsCount: number
+      textLayersCount: number
     }
 
 export interface TicketInput {

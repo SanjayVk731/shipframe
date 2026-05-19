@@ -19,7 +19,26 @@ export function classifySelection(nodes: readonly SceneNode[]): SelectionState {
     nodeId: node.id,
     nodeName: node.name,
     link: readLink(node),
+    annotationsCount: countAnnotations(node),
+    textLayersCount: countTextLayers(node),
   }
+}
+
+function countTextLayers(node: SceneNode, depth = 0): number {
+  if (depth > 5) return 0
+  // Some node types don't expose `visible` (e.g., DOCUMENT/PAGE), so we only
+  // skip when it's explicitly false. The supported types above all have it.
+  if ('visible' in node && (node as { visible: boolean }).visible === false) return 0
+  if (node.type === 'TEXT') return 1
+  const children = (node as unknown as { children?: SceneNode[] }).children ?? []
+  let total = 0
+  for (const c of children) total += countTextLayers(c, depth + 1)
+  return total
+}
+
+function countAnnotations(node: SceneNode): number {
+  const ann = (node as unknown as { annotations?: Array<{ label: string }> }).annotations
+  return Array.isArray(ann) ? ann.length : 0
 }
 
 const MAX_THUMB_EDGE = 2048
