@@ -12,6 +12,7 @@ export async function tryRequest<T>(
   }
 
   if (res.ok) {
+    // 2xx but unparseable body — surface as 'unknown' (the server broke its contract)
     try {
       const value = (parse ? await parse(res) : ((await res.json()) as T)) as T
       return { ok: true, value, status: res.status }
