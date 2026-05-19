@@ -2,6 +2,7 @@
 
 Create Notion or Azure DevOps tickets from a selected frame in Figma.
 
+[![CI](https://github.com/SanjayVk731/shipframe/actions/workflows/ci.yml/badge.svg)](https://github.com/SanjayVk731/shipframe/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## Develop
