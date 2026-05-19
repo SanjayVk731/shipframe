@@ -59,15 +59,16 @@ export function App() {
     if (!fileConfig) return
     setMode(selectMode(sandbox.selection))
     setThumb(null)
-    if (sandbox.selection.kind === 'single' && sandbox.selection.link === null) {
-      void (async () => {
-        if (sandbox.selection.kind !== 'single') return
-        const res = await sandbox.request({
-          type: 'export-thumbnail',
-          nodeId: sandbox.selection.nodeId,
-        })
-        if (res.type === 'thumbnail') setThumb(res.image)
-      })()
+    if (sandbox.selection.kind !== 'single' || sandbox.selection.link !== null) return
+    let cancelled = false
+    const nodeId = sandbox.selection.nodeId
+    void (async () => {
+      const res = await sandbox.request({ type: 'export-thumbnail', nodeId })
+      if (cancelled) return
+      if (res.type === 'thumbnail') setThumb(res.image)
+    })()
+    return () => {
+      cancelled = true
     }
   }, [sandbox.selection, fileConfig, sandbox])
 
@@ -110,12 +111,19 @@ export function App() {
       const created = await provider.createTicket(pat, fileConfig.boardId, input)
       if (!created.ok) return created
       if (sandbox.selection.kind === 'single' && thumb) {
-        await provider.uploadAttachment(
+        const up = await provider.uploadAttachment(
           pat,
           { id: created.value.id, boardId: fileConfig.boardId },
           thumb,
           'thumbnail.png',
         )
+        if (!up.ok) {
+          console.warn(
+            'figma-tickets: thumbnail upload failed',
+            up.reason,
+            up.status,
+          )
+        }
       }
       const link: TicketLink = {
         id: created.value.id,
