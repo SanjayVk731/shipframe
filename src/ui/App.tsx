@@ -139,6 +139,7 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     sandbox.selection.kind === 'single' ? sandbox.selection.nodeId : null,
+    sandbox.selection.kind === 'single' ? sandbox.selection.link?.id ?? null : null,
   ])
 
   const onSaveSettings = useCallback(

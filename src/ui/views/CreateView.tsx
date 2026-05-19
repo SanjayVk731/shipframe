@@ -171,6 +171,9 @@ export function CreateView({
         setDraftError('Nothing to draft from — add a Figma annotation or text layer first.')
         return
       }
+      // Static import would be fine — the singlefile build inlines everything
+      // anyway. We keep the dynamic import for clean separation: AI code only
+      // runs in the iframe when this handler is actually invoked.
       const { draftFromContext } = await import('../ai/draft')
       const drafted = await draftFromContext(ctx, aiConfig)
       if (!drafted.ok) {
