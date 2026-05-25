@@ -167,6 +167,19 @@ describe('syncAnnotation', () => {
     })
     expect(result).toEqual({ ok: false, reason: 'api-unavailable' })
   })
+
+  it('returns unsupported-node for nodes lacking AnnotationsMixin (e.g. SECTION)', async () => {
+    const { makeNode } = installFigmaMock()
+    const node = makeNode('1:2', 'SECTION', 'Wireframes', { supportsAnnotations: false })
+    const result = await syncAnnotation('1:2', {
+      providerId: 'azure',
+      ticketId: '1234',
+      title: 'irrelevant',
+    })
+    expect(result).toEqual({ ok: false, reason: 'unsupported-node' })
+    // Must not have assigned anything onto the node.
+    expect(node.annotations).toBeUndefined()
+  })
 })
 
 describe('clearAnnotation', () => {
@@ -189,5 +202,12 @@ describe('clearAnnotation', () => {
     installFigmaMock()
     const result = await clearAnnotation('99:99')
     expect(result).toEqual({ ok: false, reason: 'node-missing' })
+  })
+
+  it('returns unsupported-node for nodes lacking AnnotationsMixin', async () => {
+    const { makeNode } = installFigmaMock()
+    makeNode('1:2', 'SECTION', 'Wireframes', { supportsAnnotations: false })
+    const result = await clearAnnotation('1:2')
+    expect(result).toEqual({ ok: false, reason: 'unsupported-node' })
   })
 })

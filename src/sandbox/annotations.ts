@@ -34,7 +34,7 @@ export function buildLabel(input: BuildLabelInput): string {
   return `Notion · ${safeTitle} · #${shortId}`
 }
 
-export type SyncReason = 'node-missing' | 'api-unavailable'
+export type SyncReason = 'node-missing' | 'api-unavailable' | 'unsupported-node'
 
 export type SyncResult = { ok: true } | { ok: false; reason: SyncReason }
 
@@ -45,14 +45,22 @@ function categoryForProvider(providerId: ProviderId): string {
   return providerId === 'azure' ? 'azure' : 'notion'
 }
 
+// SectionNode and a few other allowed selection types don't implement
+// AnnotationsMixin — assigning `node.annotations = [...]` throws. Detect by
+// checking the property exists on the node.
+function supportsAnnotations(
+  node: SceneNode,
+): node is SceneNode & { annotations: AnnotationEntry[] } {
+  return 'annotations' in node && Array.isArray((node as { annotations?: unknown }).annotations)
+}
+
 export async function clearAnnotation(nodeId: string): Promise<SyncResult> {
   if (typeof (figma as unknown as { annotations?: unknown }).annotations === 'undefined') {
     return { ok: false, reason: 'api-unavailable' }
   }
-  const node = (await figma.getNodeByIdAsync(nodeId)) as
-    | (SceneNode & { annotations: AnnotationEntry[] })
-    | null
+  const node = (await figma.getNodeByIdAsync(nodeId)) as SceneNode | null
   if (!node) return { ok: false, reason: 'node-missing' }
+  if (!supportsAnnotations(node)) return { ok: false, reason: 'unsupported-node' }
   node.annotations = (node.annotations ?? []).filter((a) => !isOursLabel(a.label))
   return { ok: true }
 }
@@ -64,10 +72,9 @@ export async function syncAnnotation(
   if (typeof (figma as unknown as { annotations?: unknown }).annotations === 'undefined') {
     return { ok: false, reason: 'api-unavailable' }
   }
-  const node = (await figma.getNodeByIdAsync(nodeId)) as
-    | (SceneNode & { annotations: AnnotationEntry[] })
-    | null
+  const node = (await figma.getNodeByIdAsync(nodeId)) as SceneNode | null
   if (!node) return { ok: false, reason: 'node-missing' }
+  if (!supportsAnnotations(node)) return { ok: false, reason: 'unsupported-node' }
 
   const target = buildLabel(input)
   const targetCategory = categoryForProvider(input.providerId)

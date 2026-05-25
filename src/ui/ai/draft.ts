@@ -5,6 +5,7 @@ import { buildSystemPrompt, buildUserPrompt } from './prompt'
 import { parseDraftResponse } from './parseResponse'
 import { callAnthropic } from './anthropic'
 import { callOpenAI } from './openai'
+import { callAzureOpenAI } from './azureOpenAI'
 import type { DraftOutput } from './types'
 
 async function callOnce(
@@ -14,6 +15,15 @@ async function callOnce(
 ): Promise<Result<string>> {
   if (ai.provider === 'anthropic') {
     return callAnthropic({ apiKey: ai.key, systemPrompt, userPrompt })
+  }
+  if (ai.provider === 'azure-openai') {
+    if (!ai.endpoint) return { ok: false, reason: 'auth_failed', status: 0 }
+    return callAzureOpenAI({
+      apiKey: ai.key,
+      endpoint: ai.endpoint,
+      systemPrompt,
+      userPrompt,
+    })
   }
   return callOpenAI({ apiKey: ai.key, systemPrompt, userPrompt })
 }

@@ -32,6 +32,7 @@ function renderView(initial?: Partial<{
       listBoards={listBoards}
       aiProvider="off"
       aiKey=""
+      aiEndpoint=""
       onAiChange={onAiChange}
     />,
   )

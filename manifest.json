@@ -12,8 +12,9 @@
       "https://dev.azure.com",
       "https://*.visualstudio.com",
       "https://api.anthropic.com",
-      "https://api.openai.com"
+      "https://api.openai.com",
+      "https://*.openai.azure.com"
     ],
-    "reasoning": "Creates tickets in the user's chosen tracker (Notion or Azure DevOps) from a selected frame. Optional AI Draft sends frame name, native Figma annotations, and visible text-layer copy (no images) to the user's chosen LLM provider (Anthropic or OpenAI) using their own API key. No third-party servers."
+    "reasoning": "Creates tickets in the user's chosen tracker (Notion or Azure DevOps) from a selected frame. Optional AI Draft sends frame name, native Figma annotations, and visible text-layer copy (no images) to the user's chosen LLM provider (Anthropic, OpenAI, or Azure OpenAI on the user's own tenant) using their own API key. No third-party servers."
   }
 }

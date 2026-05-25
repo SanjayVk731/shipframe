@@ -140,6 +140,105 @@ describe('draftFromContext (Anthropic)', () => {
   })
 })
 
+describe('draftFromContext (Azure OpenAI)', () => {
+  const endpoint =
+    'https://mycorp.openai.azure.com/openai/deployments/gpt-4o-mini/chat/completions?api-version=2024-10-21'
+
+  it('routes to the configured endpoint with api-key header (no Authorization)', async () => {
+    let capturedUrl: string | undefined
+    let capturedInit: RequestInit | undefined
+    installFetch([
+      {
+        matches: (url, init) => {
+          if (url.includes('mycorp.openai.azure.com')) {
+            capturedUrl = url
+            capturedInit = init
+            return true
+          }
+          return false
+        },
+        response: () =>
+          jsonResponse(200, {
+            choices: [{ message: { content: '{"title":"T"}' } }],
+          }),
+      },
+    ])
+    await draftFromContext(ctx, {
+      provider: 'azure-openai',
+      key: 'azkey',
+      endpoint,
+    })
+    expect(capturedUrl).toBe(endpoint)
+    const headers = capturedInit?.headers as Record<string, string> | undefined
+    expect(headers?.['api-key']).toBe('azkey')
+    expect(headers?.['authorization']).toBeUndefined()
+    const body = JSON.parse(capturedInit?.body as string) as {
+      model?: string
+      response_format?: { type?: string }
+    }
+    expect(body.model).toBeUndefined()
+    expect(body.response_format?.type).toBe('json_object')
+  })
+
+  it('returns parsed JSON on 200 happy path', async () => {
+    installFetch([
+      {
+        matches: (url) => url.includes('mycorp.openai.azure.com'),
+        response: () =>
+          jsonResponse(200, {
+            choices: [{ message: { content: '{"title":"T","main":"M"}' } }],
+          }),
+      },
+    ])
+    const r = await draftFromContext(ctx, {
+      provider: 'azure-openai',
+      key: 'k',
+      endpoint,
+    })
+    expect(r.ok && r.value.title).toBe('T')
+  })
+
+  it('returns auth_failed on 401', async () => {
+    installFetch([
+      { matches: () => true, response: () => jsonResponse(401, { error: 'bad key' }) },
+    ])
+    const r = await draftFromContext(ctx, {
+      provider: 'azure-openai',
+      key: 'k',
+      endpoint,
+    })
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.reason).toBe('auth_failed')
+  })
+
+  it('returns not_found on 404 (wrong deployment)', async () => {
+    installFetch([{ matches: () => true, response: () => jsonResponse(404, {}) }])
+    const r = await draftFromContext(ctx, {
+      provider: 'azure-openai',
+      key: 'k',
+      endpoint,
+    })
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.reason).toBe('not_found')
+  })
+
+  it('returns auth_failed without calling fetch when endpoint is missing', async () => {
+    const fetchFn = vi.fn()
+    vi.stubGlobal('fetch', fetchFn)
+    const r = await draftFromContext(ctx, {
+      provider: 'azure-openai',
+      key: 'k',
+      // endpoint omitted deliberately — defensive guard in draft.ts
+    } as unknown as Parameters<typeof draftFromContext>[1])
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.reason).toBe('auth_failed')
+    expect(fetchFn).not.toHaveBeenCalled()
+  })
+})
+
 describe('draftFromContext (OpenAI)', () => {
   it('uses Authorization: Bearer header', async () => {
     let capturedInit: RequestInit | undefined

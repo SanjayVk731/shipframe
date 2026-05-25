@@ -12,7 +12,8 @@ export interface MockNode {
   children: MockNode[]
   characters?: string
   visible: boolean
-  annotations: MockAnnotation[]
+  // Undefined for node types that don't implement AnnotationsMixin (e.g. SECTION).
+  annotations?: MockAnnotation[]
 }
 
 export function installFigmaMock() {
@@ -24,7 +25,14 @@ export function installFigmaMock() {
     id: string,
     type: string,
     name: string,
-    opts: { characters?: string; visible?: boolean; children?: MockNode[] } = {},
+    opts: {
+      characters?: string
+      visible?: boolean
+      children?: MockNode[]
+      // Pass false to simulate node types that don't implement AnnotationsMixin
+      // (SECTION, etc.). Default true matches FRAME/COMPONENT/INSTANCE.
+      supportsAnnotations?: boolean
+    } = {},
   ): MockNode {
     const node: MockNode = {
       id,
@@ -33,7 +41,7 @@ export function installFigmaMock() {
       children: opts.children ?? [],
       characters: opts.characters,
       visible: opts.visible ?? true,
-      annotations: [],
+      annotations: opts.supportsAnnotations === false ? undefined : [],
     }
     nodes.set(id, node)
     return node

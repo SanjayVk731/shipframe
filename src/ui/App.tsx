@@ -58,8 +58,11 @@ export function App() {
   // failed, so LinkedView can show a "pin couldn't be added" warning.
   const [pinFailedId, setPinFailedId] = useState<string | null>(null)
 
-  const [aiProvider, setAiProvider] = useState<'anthropic' | 'openai' | 'off'>('off')
+  const [aiProvider, setAiProvider] = useState<
+    'anthropic' | 'openai' | 'azure-openai' | 'off'
+  >('off')
   const [aiKey, setAiKey] = useState('')
+  const [aiEndpoint, setAiEndpoint] = useState('')
 
   // Load file config + persisted PATs once on mount.
   useEffect(() => {
@@ -80,6 +83,7 @@ export function App() {
       if (aiCfg) {
         setAiProvider(aiCfg.provider)
         setAiKey(aiCfg.key)
+        setAiEndpoint(aiCfg.endpoint ?? '')
       }
       setMode(cfg ? selectMode(sandbox.selection) : 'settings')
     })()
@@ -159,14 +163,31 @@ export function App() {
   )
 
   const onAiChange = useCallback(
-    async (next: { provider: 'anthropic' | 'openai' | 'off'; key: string }) => {
+    async (next: {
+      provider: 'anthropic' | 'openai' | 'azure-openai' | 'off'
+      key: string
+      endpoint?: string
+    }) => {
       setAiProvider(next.provider)
       setAiKey(next.key)
+      setAiEndpoint(next.endpoint ?? '')
       if (next.provider === 'off' || next.key === '') {
         await clearAiConfig()
-      } else {
-        await setAiConfig({ provider: next.provider, key: next.key })
+        return
       }
+      if (next.provider === 'azure-openai') {
+        if (!next.endpoint) {
+          await clearAiConfig()
+          return
+        }
+        await setAiConfig({
+          provider: next.provider,
+          key: next.key,
+          endpoint: next.endpoint,
+        })
+        return
+      }
+      await setAiConfig({ provider: next.provider, key: next.key })
     },
     [],
   )
@@ -236,6 +257,8 @@ export function App() {
         })
         // Sync annotation immediately after writing the ticket link. Non-blocking
         // — a failure only sets pinFailedId so LinkedView can warn the user.
+        // `unsupported-node` (e.g. SECTION) is expected, not a failure — don't
+        // warn for it.
         const syncRes = await sandbox.request({
           type: 'sync-annotation',
           nodeId: sandbox.selection.nodeId,
@@ -243,11 +266,13 @@ export function App() {
           ticketId: link.id,
           title: input.title,
         })
+        const pinFailed =
+          syncRes.type === 'error' && syncRes.reason !== 'unsupported-node'
         // Mark this link as "just created" BEFORE refreshing selection so the
         // success banner is visible on the very first LinkedView render.
         setJustCreatedId(link.id)
         setAttachmentFailedId(attachmentOk ? null : link.id)
-        setPinFailedId(syncRes.type === 'error' ? link.id : null)
+        setPinFailedId(pinFailed ? link.id : null)
         // pluginData writes don't fire selectionchange — refresh manually so
         // the UI flips from CreateView to LinkedView.
         await sandbox.request({ type: 'get-selection-state' })
@@ -300,6 +325,7 @@ export function App() {
         onCancel={fileConfig ? () => setForceSettings(false) : undefined}
         aiProvider={aiProvider}
         aiKey={aiKey}
+        aiEndpoint={aiEndpoint}
         onAiChange={onAiChange}
       />
     )
@@ -343,7 +369,15 @@ export function App() {
       getFieldSchema={getFieldSchema}
       onCreate={onCreate}
       onOpenSettings={openSettings}
-      aiConfig={aiProvider !== 'off' && aiKey.length > 0 ? { provider: aiProvider, key: aiKey } : undefined}
+      aiConfig={
+        aiProvider === 'off' || aiKey.length === 0
+          ? undefined
+          : aiProvider === 'azure-openai'
+            ? aiEndpoint.length > 0
+              ? { provider: aiProvider, key: aiKey, endpoint: aiEndpoint }
+              : undefined
+            : { provider: aiProvider, key: aiKey }
+      }
       annotationsCount={sandbox.selection.kind === 'single' ? sandbox.selection.annotationsCount : 0}
       textLayersCount={sandbox.selection.kind === 'single' ? sandbox.selection.textLayersCount : 0}
       getFrameContext={async () => {
@@ -354,7 +388,13 @@ export function App() {
           nodeId: sandbox.selection.nodeId,
           workItemType: wit,
         })
-        if (r.type !== 'frame-context') return undefined
+        if (r.type !== 'frame-context') {
+          console.warn(
+            'figma-tickets: get-frame-context failed',
+            r.type === 'error' ? r.reason : r.type,
+          )
+          return undefined
+        }
         return r.context
       }}
     />
