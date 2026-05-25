@@ -54,6 +54,7 @@ npm run typecheck
 - [ ] Notion integration without any shared databases → help text in Settings.
 - [ ] **Auto-pin sanity:** Create a ticket on a frame → confirm a numbered annotation appears on the frame and is visible in Figma's Annotations panel; clicking it opens the correct ticket. Re-select the same frame: no duplicate pin. Manually delete the pin and reopen the plugin on the same frame: pin is recreated.
 - [ ] **AI Draft sanity:** With an Anthropic (or OpenAI) key configured in Settings and a frame that has at least one native annotation, click ✨ Draft → confirm the form pre-fills coherently for the chosen WIT (Bug shows reproSteps/expected/actual; User Story shows acceptanceCriteria/outOfScope). Edit and Create the ticket; confirm it lands as expected. Unconfigure the key in Settings → the Draft button disappears.
+- [ ] **AI Draft — Azure OpenAI:** In Settings pick Azure OpenAI, paste a deployment endpoint URL (`https://<tenant>.openai.azure.com/openai/deployments/<deployment>/chat/completions?api-version=2024-10-21`) and the api-key → save. Confirm validation warnings appear for non-Azure hosts and for endpoints missing `?api-version=…`. Click ✨ Draft on an annotated frame → form pre-fills. Switch provider back to Off → `ai:endpoint` is cleared alongside provider+key.
 
 ## Architecture
 
