@@ -9,6 +9,7 @@ import type {
   FieldSchema,
   ProviderId,
   TicketInput,
+  FrameContext,
 } from '../../shared/types'
 import type { Result } from '../../providers/types'
 
@@ -40,6 +41,16 @@ interface Props {
   ) => Promise<Result<FieldSchema>>
   onCreate: (input: TicketInput) => Promise<Result<unknown>>
   onOpenSettings?: () => void
+  /** AI Draft configuration. When undefined, the Draft button is hidden. */
+  aiConfig?: import('../../storage/aiConfig').AiConfig
+  /** Counts from the selection — used to gate the Draft button. */
+  annotationsCount?: number
+  textLayersCount?: number
+  /**
+   * Fetches frame context from the sandbox. Returns the context or undefined
+   * if the sandbox couldn't read it.
+   */
+  getFrameContext?: () => Promise<FrameContext | undefined>
 }
 
 function reasonToMessage(reason: string): string {
@@ -49,6 +60,14 @@ function reasonToMessage(reason: string): string {
   if (reason === 'rate_limited') return 'Rate limited — wait a moment and retry.'
   if (reason === 'server_error') return 'Server error — try again shortly.'
   return 'Something went wrong.'
+}
+
+function draftReasonToMessage(reason: string): string {
+  if (reason === 'auth_failed') return 'Invalid API key — check Settings.'
+  if (reason === 'rate_limited') return 'Rate limited — try again in a moment.'
+  if (reason === 'server_error') return 'AI provider is having issues — try again.'
+  if (reason === 'network_error') return "Couldn't reach the AI provider."
+  return 'AI draft failed — try again.'
 }
 
 /**
@@ -92,6 +111,10 @@ export function CreateView({
   getFieldSchema,
   onCreate,
   onOpenSettings,
+  aiConfig,
+  annotationsCount,
+  textLayersCount,
+  getFrameContext,
 }: Props) {
   const [schema, setSchema] = useState<FieldSchema | null>(null)
   const [schemaError, setSchemaError] = useState<string | null>(null)
@@ -108,6 +131,8 @@ export function CreateView({
   const [outOfScope, setOutOfScope] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [drafting, setDrafting] = useState(false)
+  const [draftError, setDraftError] = useState<string | null>(null)
 
   const sectionSet = sectionSetFor(workItemType)
 
@@ -125,6 +150,48 @@ export function CreateView({
   }, [providerId, boardId, getFieldSchema])
 
   const canSubmit = title.trim().length > 0 && schema !== null && !submitting
+
+  const canDraft =
+    aiConfig !== undefined &&
+    ((annotationsCount ?? 0) > 0 || (textLayersCount ?? 0) > 0) &&
+    !drafting &&
+    !submitting
+
+  async function onDraft() {
+    if (!aiConfig || !getFrameContext) return
+    setDrafting(true)
+    setDraftError(null)
+    try {
+      const ctx = await getFrameContext()
+      if (!ctx) {
+        setDraftError("Couldn't read the frame.")
+        return
+      }
+      if (ctx.annotations.length === 0 && ctx.textLayers.length === 0) {
+        setDraftError('Nothing to draft from — add a Figma annotation or text layer first.')
+        return
+      }
+      // Static import would be fine — the singlefile build inlines everything
+      // anyway. We keep the dynamic import for clean separation: AI code only
+      // runs in the iframe when this handler is actually invoked.
+      const { draftFromContext } = await import('../ai/draft')
+      const drafted = await draftFromContext(ctx, aiConfig)
+      if (!drafted.ok) {
+        setDraftError(draftReasonToMessage(drafted.reason))
+        return
+      }
+      const v = drafted.value
+      if (typeof v.title === 'string') setTitle(v.title)
+      if (typeof v.main === 'string') setDescription(v.main)
+      if (typeof v.reproSteps === 'string') setReproSteps(v.reproSteps)
+      if (typeof v.expected === 'string') setExpected(v.expected)
+      if (typeof v.actual === 'string') setActual(v.actual)
+      if (typeof v.acceptanceCriteria === 'string') setAcceptanceCriteria(v.acceptanceCriteria)
+      if (typeof v.outOfScope === 'string') setOutOfScope(v.outOfScope)
+    } finally {
+      setDrafting(false)
+    }
+  }
 
   async function submit() {
     if (!canSubmit) return
@@ -170,6 +237,28 @@ export function CreateView({
         <div className="warning-banner" role="status">
           This selection is too large to attach as an image. The ticket will be
           created with the Figma link only.
+        </div>
+      )}
+
+      {aiConfig && (
+        <div style={{ marginBottom: 12 }}>
+          <Button
+            variant="primary"
+            disabled={!canDraft}
+            onClick={() => void onDraft()}
+          >
+            {drafting ? '✨ Drafting…' : '✨ Draft with AI'}
+          </Button>
+          {draftError && (
+            <p style={{ marginTop: 6, marginBottom: 0, opacity: 0.85, fontSize: 12 }}>
+              {draftError}
+            </p>
+          )}
+          {!draftError && !drafting && annotationsCount === 0 && textLayersCount === 0 && (
+            <p style={{ marginTop: 6, marginBottom: 0, opacity: 0.6, fontSize: 12 }}>
+              Add a Figma annotation or text layer to enable AI Draft.
+            </p>
+          )}
         </div>
       )}
 

@@ -4,6 +4,8 @@ import { classifySelection, exportThumbnail } from './selection'
 import { writeLink, clearLink } from './nodeLink'
 import { getFileConfig, setFileConfig } from '../storage/fileConfig'
 import { getPat, setPat } from '../storage/credentials'
+import { syncAnnotation, clearAnnotation } from './annotations'
+import { collectFrameContext } from './frameContext'
 
 figma.showUI(__html__, { width: 360, height: 560, themeColors: true })
 
@@ -125,6 +127,37 @@ figma.ui.onmessage = async (raw: unknown) => {
       }
       case 'open-external': {
         figma.openExternal(msg.url)
+        return
+      }
+      case 'sync-annotation': {
+        const result = await syncAnnotation(msg.nodeId, {
+          providerId: msg.providerId,
+          ticketId: msg.ticketId,
+          title: msg.title,
+        })
+        if (result.ok) {
+          post({ type: 'ack', requestId: msg.requestId })
+        } else {
+          post({ type: 'error', reason: result.reason, requestId: msg.requestId })
+        }
+        return
+      }
+      case 'clear-annotation': {
+        const result = await clearAnnotation(msg.nodeId)
+        if (result.ok) {
+          post({ type: 'ack', requestId: msg.requestId })
+        } else {
+          post({ type: 'error', reason: result.reason, requestId: msg.requestId })
+        }
+        return
+      }
+      case 'get-frame-context': {
+        const result = await collectFrameContext(msg.nodeId, msg.workItemType)
+        if (result.ok) {
+          post({ type: 'frame-context', context: result.value, requestId: msg.requestId })
+        } else {
+          post({ type: 'error', reason: result.reason, requestId: msg.requestId })
+        }
         return
       }
       default: {

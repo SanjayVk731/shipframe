@@ -28,6 +28,8 @@ export type SelectionState =
       nodeId: string
       nodeName: string
       link: TicketLink | null
+      annotationsCount: number
+      textLayersCount: number
     }
 
 export interface TicketInput {
@@ -48,6 +50,15 @@ export interface TicketInput {
    * Empty string when no repro steps were provided. Notion ignores this today.
    */
   reproStepsHtml?: string
+}
+
+export interface FrameContext {
+  frameName: string
+  workItemType: string | undefined
+  /** Native Figma annotation labels on the frame. */
+  annotations: string[]
+  /** Visible TEXT.characters from descendants, bounded — see frameContext.ts. */
+  textLayers: string[]
 }
 
 export interface Board {

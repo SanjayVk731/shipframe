@@ -109,6 +109,18 @@ Pipeline per field:
 
 Because the composer owns escaping, **`azureProvider.createTicket` must not double-escape** — it passes `description`, `acceptanceCriteriaHtml`, and `reproStepsHtml` through as-is.
 
+### Auto-pin annotations — `src/sandbox/annotations.ts`
+
+Pin lifecycle is managed entirely in the sandbox via `figma.annotations`. `syncAnnotation` is idempotent — it reconciles to a single canonical pin per node and ticket: noop when the label matches, replace when it drifted, preserve any non-ours annotation. Pin labels follow `AZURE-<id>` or `Notion · <title> · #<8-hex>`. `isOursLabel`'s regex (`^AZURE-\d+$` / `^Notion · .+ · #[0-9a-f]{8}$`) is the **single source of truth** for ownership — never parse pin labels by hand elsewhere. `clearAnnotation` removes only ours-pins; it's wired in the message protocol but not currently surfaced in any UI action (kept around for a future "delete pin" flow). The sandbox handler in `main.ts` translates `sync-annotation` / `clear-annotation` failures to the generic `error` envelope.
+
+### Frame context collection — `src/sandbox/frameContext.ts`
+
+Read by the UI to build the AI Draft prompt. Bounded traversal: depth ≤ 5, ≤ 50 TEXT nodes, ≤ 300 chars per node, ≤ 20 annotations, ≤ 8000 total chars. The depth cap bounds **container recursion**, not leaf inclusion — a TEXT leaf inside a depth-5 FRAME is still collected. Truncation appends `…and N more text nodes truncated` or `…and N more chars truncated` so the LLM knows it isn't seeing everything. Invisible nodes are skipped.
+
+### AI Draft — `src/ui/ai/`
+
+BYO-key, text-only. The UI iframe calls `api.anthropic.com` or `api.openai.com` directly using the user's API key from `clientStorage` (`ai:provider` + `ai:key`, atomic clear via `clearAiConfig`). The sandbox only collects context via `get-frame-context`; no network in the sandbox. Reuses providers' `Result<T>` and `NormalizedReason` — no parallel error-shape system. `parseDraftResponse` strips ```` ```json ```` fences, validates JSON shape, filters keys by WIT (same mapping as `sectionSetFor` in CreateView), and coerces numbers/booleans to strings. The orchestrator (`draft.ts`) retries once on malformed JSON with a stricter reminder; if still malformed, returns `reason: 'unknown'`. Anthropic adapter sends `anthropic-dangerous-direct-browser-access: true` (required for browser-direct calls). OpenAI adapter sets `response_format: { type: 'json_object' }`. `draft.ts` is **dynamic-imported** from CreateView so the AI bundle is only fetched when the user clicks Draft.
+
 `CreateView` chooses which sections to render based on the Azure work item type (`Bug` → repro/expected/actual; `User Story` / `Feature` → AC + out of scope; `Task` / `Epic` → AC only; unknown → User Story set as a safe default). The mapping lives in `sectionSetFor()` in `CreateView.tsx`. WIT is parsed out of `boardId` by `workItemTypeFor()` in `App.tsx`; Notion-flavored boards return `undefined` and CreateView falls back to the User Story set.
 
 ### Selection contract — `src/sandbox/selection.ts`
@@ -135,7 +147,7 @@ Tests mirror `src/` exactly (e.g. `src/providers/notion.ts` → `tests/providers
 - **`strict` + `noUncheckedIndexedAccess`** in `tsconfig.json` — `arr[0]` is `T | undefined`; either narrow or use `!` if you can prove it's safe (e.g. after a `length` check).
 - **Sandbox bundle must stay tiny and dependency-free.** It runs in QuickJS; libraries that pull in Node/DOM polyfills silently break there. The UI bundle is allowed real dependencies (currently React, `marked`, `isomorphic-dompurify`) but check the bundle delta — the UI ships inlined into a single HTML file via `vite-plugin-singlefile`. Anything you add to UI imports must NOT be imported by `src/sandbox/` or `src/shared/`, or it'll leak into the sandbox bundle.
 - **Errors from provider calls are normalized, not thrown.** Don't `try/catch` `Result<T>` returns; branch on `.ok`. Error detail from the provider body (e.g. Azure's "field X is required") is surfaced verbatim in `CreateView` via `extractProviderDetail()`.
-- **Don't widen `networkAccess.allowedDomains`** without updating both `manifest.json` and `SECURITY.md` — Figma reviewers read both. Currently locked to `api.notion.com`, `dev.azure.com`, `*.visualstudio.com`.
+- **Don't widen `networkAccess.allowedDomains`** without updating both `manifest.json` and `SECURITY.md` — Figma reviewers read both. Currently locked to `api.notion.com`, `dev.azure.com`, `*.visualstudio.com`, `api.anthropic.com`, `api.openai.com`.
 - **HTML produced by `composeDescription` is trusted by providers.** If you add another consumer of user-typed prose, run it through the composer (or DOMPurify directly) — don't hand-roll escaping again.
 - The manifest `id` (`shipframe-local-dev`) is overwritten by Figma on first publish. Leave it as-is.
 

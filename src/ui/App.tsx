@@ -5,6 +5,7 @@ import { CreateView } from './views/CreateView'
 import { LinkedView } from './views/LinkedView'
 import { ViewHeader } from './components/ViewHeader'
 import { getProvider } from '../providers/registry'
+import { getAiConfig, setAiConfig, clearAiConfig } from '../storage/aiConfig'
 import type {
   FileConfig,
   ProviderId,
@@ -53,6 +54,15 @@ export function App() {
   // Set to the just-created ticket id when its thumbnail upload failed, so
   // LinkedView can show a "thumbnail not attached" warning.
   const [attachmentFailedId, setAttachmentFailedId] = useState<string | null>(null)
+  // Set to the just-created ticket id when the post-create annotation sync
+  // failed, so LinkedView can show a "pin couldn't be added" warning.
+  const [pinFailedId, setPinFailedId] = useState<string | null>(null)
+
+  const [aiProvider, setAiProvider] = useState<
+    'anthropic' | 'openai' | 'azure-openai' | 'off'
+  >('off')
+  const [aiKey, setAiKey] = useState('')
+  const [aiEndpoint, setAiEndpoint] = useState('')
 
   // Load file config + persisted PATs once on mount.
   useEffect(() => {
@@ -69,6 +79,12 @@ export function App() {
         notion: notionPat.type === 'pat' ? notionPat.pat : null,
         azure: azurePat.type === 'pat' ? azurePat.pat : null,
       })
+      const aiCfg = await getAiConfig()
+      if (aiCfg) {
+        setAiProvider(aiCfg.provider)
+        setAiKey(aiCfg.key)
+        setAiEndpoint(aiCfg.endpoint ?? '')
+      }
       setMode(cfg ? selectMode(sandbox.selection) : 'settings')
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -81,6 +97,7 @@ export function App() {
   useEffect(() => {
     setJustCreatedId(null)
     setAttachmentFailedId(null)
+    setPinFailedId(null)
   }, [selectedNodeId])
 
   // React to selection changes when configured.
@@ -105,6 +122,30 @@ export function App() {
     }
   }, [sandbox.selection, fileConfig, sandbox])
 
+  // Reconcile annotation on every selection of a linked frame. syncAnnotation
+  // is idempotent — it noops when the label is already correct. Self-heals if
+  // the designer manually deleted the pin.
+  useEffect(() => {
+    if (sandbox.selection.kind !== 'single' || sandbox.selection.link === null) return
+    const link = sandbox.selection.link
+    const nodeId = sandbox.selection.nodeId
+    // Title isn't stored on TicketLink. For Azure label = AZURE-<id> (title is
+    // ignored). For Notion the label includes a (possibly stale) title — use
+    // node name as a stable proxy.
+    const title = sandbox.selection.nodeName
+    void sandbox.request({
+      type: 'sync-annotation',
+      nodeId,
+      providerId: link.providerId,
+      ticketId: link.id,
+      title,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    sandbox.selection.kind === 'single' ? sandbox.selection.nodeId : null,
+    sandbox.selection.kind === 'single' ? sandbox.selection.link?.id ?? null : null,
+  ])
+
   const onSaveSettings = useCallback(
     (payload: { providerId: ProviderId; pat: string; config: FileConfig }) => {
       setPats((p) => ({ ...p, [payload.providerId]: payload.pat }))
@@ -119,6 +160,36 @@ export function App() {
       setMode(selectMode(sandbox.selection))
     },
     [sandbox],
+  )
+
+  const onAiChange = useCallback(
+    async (next: {
+      provider: 'anthropic' | 'openai' | 'azure-openai' | 'off'
+      key: string
+      endpoint?: string
+    }) => {
+      setAiProvider(next.provider)
+      setAiKey(next.key)
+      setAiEndpoint(next.endpoint ?? '')
+      if (next.provider === 'off' || next.key === '') {
+        await clearAiConfig()
+        return
+      }
+      if (next.provider === 'azure-openai') {
+        if (!next.endpoint) {
+          await clearAiConfig()
+          return
+        }
+        await setAiConfig({
+          provider: next.provider,
+          key: next.key,
+          endpoint: next.endpoint,
+        })
+        return
+      }
+      await setAiConfig({ provider: next.provider, key: next.key })
+    },
+    [],
   )
 
   const onUnlink = useCallback(async () => {
@@ -184,10 +255,24 @@ export function App() {
           nodeId: sandbox.selection.nodeId,
           link,
         })
+        // Sync annotation immediately after writing the ticket link. Non-blocking
+        // — a failure only sets pinFailedId so LinkedView can warn the user.
+        // `unsupported-node` (e.g. SECTION) is expected, not a failure — don't
+        // warn for it.
+        const syncRes = await sandbox.request({
+          type: 'sync-annotation',
+          nodeId: sandbox.selection.nodeId,
+          providerId: fileConfig.providerId,
+          ticketId: link.id,
+          title: input.title,
+        })
+        const pinFailed =
+          syncRes.type === 'error' && syncRes.reason !== 'unsupported-node'
         // Mark this link as "just created" BEFORE refreshing selection so the
         // success banner is visible on the very first LinkedView render.
         setJustCreatedId(link.id)
         setAttachmentFailedId(attachmentOk ? null : link.id)
+        setPinFailedId(pinFailed ? link.id : null)
         // pluginData writes don't fire selectionchange — refresh manually so
         // the UI flips from CreateView to LinkedView.
         await sandbox.request({ type: 'get-selection-state' })
@@ -238,6 +323,10 @@ export function App() {
         listBoards={listBoards}
         onSave={onSaveSettings}
         onCancel={fileConfig ? () => setForceSettings(false) : undefined}
+        aiProvider={aiProvider}
+        aiKey={aiKey}
+        aiEndpoint={aiEndpoint}
+        onAiChange={onAiChange}
       />
     )
   }
@@ -257,6 +346,7 @@ export function App() {
         link={sandbox.selection.link}
         justCreated={justCreatedId === sandbox.selection.link.id}
         attachmentFailed={attachmentFailedId === sandbox.selection.link.id}
+        pinFailed={pinFailedId === sandbox.selection.link.id}
         onOpen={onOpenTicket}
         onFocus={onFocusNode}
         onUnlink={onUnlink}
@@ -279,6 +369,34 @@ export function App() {
       getFieldSchema={getFieldSchema}
       onCreate={onCreate}
       onOpenSettings={openSettings}
+      aiConfig={
+        aiProvider === 'off' || aiKey.length === 0
+          ? undefined
+          : aiProvider === 'azure-openai'
+            ? aiEndpoint.length > 0
+              ? { provider: aiProvider, key: aiKey, endpoint: aiEndpoint }
+              : undefined
+            : { provider: aiProvider, key: aiKey }
+      }
+      annotationsCount={sandbox.selection.kind === 'single' ? sandbox.selection.annotationsCount : 0}
+      textLayersCount={sandbox.selection.kind === 'single' ? sandbox.selection.textLayersCount : 0}
+      getFrameContext={async () => {
+        if (sandbox.selection.kind !== 'single') return undefined
+        const wit = workItemTypeFor(fileConfig.providerId, fileConfig.boardId)
+        const r = await sandbox.request({
+          type: 'get-frame-context',
+          nodeId: sandbox.selection.nodeId,
+          workItemType: wit,
+        })
+        if (r.type !== 'frame-context') {
+          console.warn(
+            'figma-tickets: get-frame-context failed',
+            r.type === 'error' ? r.reason : r.type,
+          )
+          return undefined
+        }
+        return r.context
+      }}
     />
   )
 }

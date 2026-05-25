@@ -64,6 +64,35 @@ describe('classifySelection', () => {
     const s = classifySelection([node])
     if (s.kind === 'single') expect(s.link).toEqual(link)
   })
+
+  it('reports annotationsCount and textLayersCount for a single FRAME selection', () => {
+    const node = {
+      id: '1:1',
+      type: 'FRAME',
+      name: 'Login',
+      visible: true,
+      annotations: [{ label: 'a1' }, { label: 'a2' }],
+      children: [
+        { type: 'TEXT', characters: 't1', visible: true, children: [] },
+        {
+          type: 'FRAME',
+          visible: true,
+          annotations: [],
+          children: [
+            { type: 'TEXT', characters: 't2', visible: true, children: [] },
+            { type: 'TEXT', characters: 't3', visible: true, children: [] },
+          ],
+        },
+      ],
+      getPluginData: vi.fn(() => ''),
+      setPluginData: vi.fn(),
+    } as unknown as SceneNode
+    const result = classifySelection([node])
+    expect(result.kind).toBe('single')
+    if (result.kind !== 'single') return
+    expect(result.annotationsCount).toBe(2)
+    expect(result.textLayersCount).toBe(3)
+  })
 })
 
 describe('exportThumbnail', () => {

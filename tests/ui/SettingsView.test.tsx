@@ -6,11 +6,13 @@ import { SettingsView, parseFileKey } from '../../src/ui/views/SettingsView'
 const onSave = vi.fn()
 const testAuth = vi.fn()
 const listBoards = vi.fn()
+const onAiChange = vi.fn()
 
 beforeEach(() => {
   onSave.mockReset()
   testAuth.mockReset()
   listBoards.mockReset()
+  onAiChange.mockReset()
 })
 
 function renderView(initial?: Partial<{
@@ -28,6 +30,10 @@ function renderView(initial?: Partial<{
       onSave={onSave}
       testAuth={testAuth}
       listBoards={listBoards}
+      aiProvider="off"
+      aiKey=""
+      aiEndpoint=""
+      onAiChange={onAiChange}
     />,
   )
 }

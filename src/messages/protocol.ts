@@ -3,6 +3,7 @@ import type {
   TicketLink,
   FileConfig,
   ProviderId,
+  FrameContext,
 } from '../shared/types'
 
 export type UiToSandbox =
@@ -21,6 +22,21 @@ export type UiToSandbox =
   | { type: 'set-pat'; providerId: ProviderId; pat: string; requestId: string }
   | { type: 'focus-node'; nodeId: string; requestId: string }
   | { type: 'open-external'; url: string }
+  | {
+      type: 'sync-annotation'
+      nodeId: string
+      providerId: ProviderId
+      ticketId: string
+      title: string
+      requestId: string
+    }
+  | { type: 'clear-annotation'; nodeId: string; requestId: string }
+  | {
+      type: 'get-frame-context'
+      nodeId: string
+      workItemType: string | undefined
+      requestId: string
+    }
 
 export type SandboxToUi =
   | { type: 'selection-state'; state: SelectionState; requestId: string }
@@ -37,6 +53,7 @@ export type SandboxToUi =
   | { type: 'ack'; requestId: string }
   | { type: 'error'; reason: string; requestId: string }
   | { type: 'selection-changed'; state: SelectionState }
+  | { type: 'frame-context'; context: FrameContext; requestId: string }
 
 const UI_TYPES = new Set<UiToSandbox['type']>([
   'get-selection-state',
@@ -49,6 +66,9 @@ const UI_TYPES = new Set<UiToSandbox['type']>([
   'set-pat',
   'focus-node',
   'open-external',
+  'sync-annotation',
+  'clear-annotation',
+  'get-frame-context',
 ])
 
 const SANDBOX_TYPES = new Set<SandboxToUi['type']>([
@@ -59,6 +79,7 @@ const SANDBOX_TYPES = new Set<SandboxToUi['type']>([
   'ack',
   'error',
   'selection-changed',
+  'frame-context',
 ])
 
 export function isUiToSandbox(value: unknown): value is UiToSandbox {

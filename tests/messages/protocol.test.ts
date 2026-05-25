@@ -40,6 +40,60 @@ describe('protocol guards', () => {
       | 'set-pat'
       | 'focus-node'
       | 'open-external'
+      | 'sync-annotation'
+      | 'clear-annotation'
+      | 'get-frame-context'
     >()
+  })
+})
+
+describe('protocol — annotation + frame-context messages', () => {
+  it('recognises sync-annotation UI→sandbox', () => {
+    expect(
+      isUiToSandbox({
+        type: 'sync-annotation',
+        nodeId: '1:2',
+        providerId: 'azure',
+        ticketId: '1234',
+        title: 'x',
+        requestId: 'r1',
+      }),
+    ).toBe(true)
+  })
+
+  it('recognises clear-annotation UI→sandbox', () => {
+    expect(
+      isUiToSandbox({
+        type: 'clear-annotation',
+        nodeId: '1:2',
+        requestId: 'r1',
+      }),
+    ).toBe(true)
+  })
+
+  it('recognises get-frame-context UI→sandbox', () => {
+    expect(
+      isUiToSandbox({
+        type: 'get-frame-context',
+        nodeId: '1:2',
+        workItemType: 'Bug',
+        requestId: 'r1',
+      }),
+    ).toBe(true)
+  })
+
+  it('recognises frame-context sandbox→UI response', () => {
+    expect(
+      isSandboxToUi({
+        type: 'frame-context',
+        context: {
+          frameName: 'Login',
+          workItemType: 'Bug',
+          annotations: [],
+          textLayers: [],
+        },
+        requestId: 'r1',
+      }),
+    ).toBe(true)
   })
 })

@@ -22,6 +22,14 @@ interface Props {
   // Present only when a previous config exists, so users can back out of editing
   // settings without losing their existing config.
   onCancel?: () => void
+  aiProvider: 'anthropic' | 'openai' | 'azure-openai' | 'off'
+  aiKey: string
+  aiEndpoint: string
+  onAiChange: (next: {
+    provider: 'anthropic' | 'openai' | 'azure-openai' | 'off'
+    key: string
+    endpoint?: string
+  }) => void
 }
 
 /**
@@ -47,6 +55,23 @@ function splitInitialPat(providerId: ProviderId | null, pat: string): { org: str
   return { org: pat.slice(0, idx), token: pat.slice(idx + 1) }
 }
 
+function isLikelyAzureOpenAiEndpoint(v: string): boolean {
+  try {
+    const url = new URL(v)
+    return url.protocol === 'https:' && url.hostname.endsWith('.openai.azure.com')
+  } catch {
+    return false
+  }
+}
+
+function hasApiVersionParam(v: string): boolean {
+  try {
+    return new URL(v).searchParams.has('api-version')
+  } catch {
+    return false
+  }
+}
+
 type Phase = 'idle' | 'testing' | 'loaded' | 'error'
 
 function reasonToMessage(reason: string): string {
@@ -66,6 +91,10 @@ export function SettingsView({
   listBoards,
   onSave,
   onCancel,
+  aiProvider,
+  aiKey,
+  aiEndpoint,
+  onAiChange,
 }: Props) {
   const initialSplit = splitInitialPat(initialProviderId, initialPat)
   const [providerId, setProviderId] = useState<ProviderId | null>(initialProviderId)
@@ -328,6 +357,83 @@ export function SettingsView({
           </div>
         </div>
       )}
+
+      <fieldset style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--figma-color-border, #444)' }}>
+        <legend>AI Draft (optional)</legend>
+        <p style={{ marginTop: 0, marginBottom: 8, opacity: 0.75, fontSize: '12px' }}>
+          Disabled by default. Sends frame name, native annotations, and visible
+          text layer copy to your chosen provider using your own API key.
+          No image content. No telemetry.
+        </p>
+        <div className="field">
+          <label htmlFor="ai-provider">Provider</label>
+          <select
+            id="ai-provider"
+            value={aiProvider}
+            onChange={(e) =>
+              onAiChange({
+                provider: e.target.value as
+                  | 'anthropic'
+                  | 'openai'
+                  | 'azure-openai'
+                  | 'off',
+                key: aiKey,
+                endpoint: aiEndpoint,
+              })
+            }
+          >
+            <option value="off">Off</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="openai">OpenAI</option>
+            <option value="azure-openai">Azure OpenAI</option>
+          </select>
+        </div>
+        {aiProvider === 'azure-openai' && (
+          <>
+            <Input
+              label="Endpoint URL"
+              value={aiEndpoint}
+              onChange={(v) =>
+                onAiChange({ provider: aiProvider, key: aiKey, endpoint: v })
+              }
+              placeholder="https://mycorp.openai.azure.com/openai/deployments/<deployment>/chat/completions?api-version=2024-10-21"
+            />
+            {aiEndpoint.length > 0 && !isLikelyAzureOpenAiEndpoint(aiEndpoint) && (
+              <p style={{ marginTop: -6, marginBottom: 10, opacity: 0.7 }}>
+                That doesn't look like an Azure OpenAI URL. It should start with{' '}
+                <code>https://</code> and the host should end with{' '}
+                <code>.openai.azure.com</code>.
+              </p>
+            )}
+            {aiEndpoint.length > 0 &&
+              isLikelyAzureOpenAiEndpoint(aiEndpoint) &&
+              !hasApiVersionParam(aiEndpoint) && (
+                <p style={{ marginTop: -6, marginBottom: 10, opacity: 0.7 }}>
+                  Missing <code>?api-version=…</code>. Azure OpenAI requires it —
+                  add e.g. <code>?api-version=2024-10-21</code> to the end of the
+                  URL.
+                </p>
+              )}
+          </>
+        )}
+        {aiProvider !== 'off' && (
+          <Input
+            label="API key"
+            value={aiKey}
+            onChange={(v) =>
+              onAiChange({ provider: aiProvider, key: v, endpoint: aiEndpoint })
+            }
+            type="password"
+            placeholder={
+              aiProvider === 'anthropic'
+                ? 'sk-ant-…'
+                : aiProvider === 'azure-openai'
+                  ? 'paste your Azure OpenAI key'
+                  : 'sk-…'
+            }
+          />
+        )}
+      </fieldset>
     </div>
   )
 }
