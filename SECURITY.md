@@ -15,7 +15,7 @@
 ## What the plugin does NOT do
 
 - No telemetry, analytics, or crash reporting.
-- No third-party servers — the plugin talks directly from your machine to the Notion API or Azure DevOps API.
+- No third-party servers — the plugin talks directly from your machine to the Azure DevOps API (or, if the user opts in, the Notion API).
 - No background polling.
 - No automatic ticket updates (one-way: Figma → tracker only).
 - No reading of other Figma plugins' data.
@@ -56,4 +56,4 @@ Disabling AI Draft (Settings → Provider: Off, or clearing the key) atomically 
 
 ## Suggested listing-page wording
 
-> The plugin stores your provider tokens locally on your machine via Figma's `clientStorage` API. They are never sent to any server other than the provider's own API (api.notion.com or dev.azure.com). The plugin has no backend.
+> The plugin stores your Azure DevOps PAT locally on your machine via Figma's `clientStorage` API. It is never sent to any server other than Azure DevOps (`dev.azure.com` or `*.visualstudio.com`). The plugin has no backend.
