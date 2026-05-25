@@ -8,13 +8,12 @@
   "documentAccess": "dynamic-page",
   "networkAccess": {
     "allowedDomains": [
-      "https://api.notion.com",
       "https://dev.azure.com",
       "https://*.visualstudio.com",
       "https://api.anthropic.com",
       "https://api.openai.com",
       "https://*.openai.azure.com"
     ],
-    "reasoning": "Creates Azure DevOps work items from a selected frame. Optional AI Draft sends frame name, native Figma annotations, and visible text-layer copy (no images) to the user's chosen LLM provider (Anthropic, OpenAI, or Azure OpenAI on the user's own tenant) using their own API key. api.notion.com is included because a Notion provider also ships in the bundle but is not promoted in the listing; it is only contacted if a user enables it from Settings. No third-party servers."
+    "reasoning": "Creates Azure DevOps work items from a selected frame, attaching the frame thumbnail and a deep link back to the node. Optional AI Draft (off by default) sends the frame name, native Figma annotations, and visible text-layer copy — no image content — to the user's chosen LLM provider (Anthropic, OpenAI, or Azure OpenAI on the user's own tenant) using their own API key stored locally. No third-party servers, no telemetry."
   }
 }

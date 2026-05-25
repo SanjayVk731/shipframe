@@ -4,7 +4,6 @@
 
 | Data | Location | Scope | Notes |
 |---|---|---|---|
-| Notion integration token | `figma.clientStorage` | Per-user, per-device | Never transmitted off your machine except to `api.notion.com` |
 | Azure DevOps PAT (in `org\|token` form) | `figma.clientStorage` | Per-user, per-device | Never transmitted off your machine except to `dev.azure.com` / `*.visualstudio.com` |
 | AI provider + API key (optional) | `figma.clientStorage` (keys `ai:provider`, `ai:key`, and `ai:endpoint` for Azure OpenAI) | Per-user, per-device | Only present when AI Draft is enabled. Never transmitted off your machine except to `api.anthropic.com`, `api.openai.com`, or the user-supplied `*.openai.azure.com` endpoint |
 | Provider + board choice for the file | `figma.root.setPluginData` | Per-file, travels with the file | No secrets; just IDs and labels |
@@ -15,16 +14,15 @@
 ## What the plugin does NOT do
 
 - No telemetry, analytics, or crash reporting.
-- No third-party servers — the plugin talks directly from your machine to the Azure DevOps API (or, if the user opts in, the Notion API).
+- No third-party servers — the plugin talks directly from your machine to the Azure DevOps API.
 - No background polling.
 - No automatic ticket updates (one-way: Figma → tracker only).
 - No reading of other Figma plugins' data.
 
 ## Network access
 
-The manifest declares exactly six allowed domains:
+The manifest declares exactly five allowed domains:
 
-- `https://api.notion.com`
 - `https://dev.azure.com`
 - `https://*.visualstudio.com` (legacy Azure DevOps org domains)
 - `https://api.anthropic.com` — only contacted when AI Draft is enabled
@@ -50,9 +48,8 @@ Disabling AI Draft (Settings → Provider: Off, or clearing the key) atomically 
 
 ## Token best practices
 
-- **Notion:** Create an Internal Integration with the minimum scopes you need (read content, insert content, update content). Share only the databases you want this plugin to write to.
 - **Azure DevOps:** Create a PAT scoped to **Work Items (Read & write)**. Set the shortest expiry window you're comfortable with.
-- **Rotation:** If a token leaks, revoke it in the provider's UI. Then re-enter a fresh token in plugin Settings.
+- **Rotation:** If a token leaks, revoke it in Azure DevOps. Then re-enter a fresh token in plugin Settings.
 
 ## Suggested listing-page wording
 

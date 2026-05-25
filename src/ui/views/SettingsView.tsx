@@ -96,9 +96,10 @@ export function SettingsView({
   aiEndpoint,
   onAiChange,
 }: Props) {
+  // Listing is Azure-only. The Notion provider still ships in the bundle so
+  // existing file configs keep working, but the picker is hidden.
+  const providerId: ProviderId = 'azure'
   const initialSplit = splitInitialPat(initialProviderId, initialPat)
-  const [providerId, setProviderId] = useState<ProviderId | null>(initialProviderId)
-  // For Azure: org + token are separate fields. For Notion: only `token` is used.
   const [org, setOrg] = useState(initialSplit.org)
   const [token, setToken] = useState(initialSplit.token)
   // The phase starts at 'loaded' when we have a saved board to display; the
@@ -114,14 +115,14 @@ export function SettingsView({
   )
   const parsedFileKey = parseFileKey(fileUrl)
 
-  // The string the provider layer expects.
-  const composedPat = providerId === 'azure' ? `${org.trim()}|${token}` : token
+  // The string the Azure provider expects: `org|token`.
+  const composedPat = `${org.trim()}|${token}`
 
   // For Azure: derive Project list + Type list from the boards array. Each
   // board.id has the shape `org|project|workItemType`.
   const { projects, workItemTypesForProject, selectedProject, selectedWorkItemType } =
     useMemo(() => {
-      if (providerId !== 'azure' || boards.length === 0) {
+      if (boards.length === 0) {
         return {
           projects: [] as string[],
           workItemTypesForProject: [] as string[],
@@ -146,7 +147,7 @@ export function SettingsView({
         selectedProject: currentProj ?? '',
         selectedWorkItemType: currentWit ?? '',
       }
-    }, [providerId, boards, boardId])
+    }, [boards, boardId])
 
   function onChangeProject(nextProject: string) {
     // Pick the first work item type available for that project.
@@ -162,9 +163,7 @@ export function SettingsView({
   }
 
   async function onTest() {
-    if (!providerId) return
-    if (providerId === 'azure' && (!org.trim() || !token)) return
-    if (providerId === 'notion' && !token) return
+    if (!org.trim() || !token) return
     setPhase('testing')
     setErrorMessage(null)
     try {
@@ -190,7 +189,7 @@ export function SettingsView({
   }
 
   function onClickSave() {
-    if (!providerId || !composedPat || !boardId || !parsedFileKey) return
+    if (!composedPat || !boardId || !parsedFileKey) return
     const board = boards.find((b) => b.id === boardId)
     if (!board) return
     onSave({
@@ -205,9 +204,8 @@ export function SettingsView({
     })
   }
 
-  const credentialsComplete =
-    providerId === 'azure' ? org.trim().length > 0 && token.length > 0 : token.length > 0
-  const canTest = !!providerId && credentialsComplete && phase !== 'testing'
+  const credentialsComplete = org.trim().length > 0 && token.length > 0
+  const canTest = credentialsComplete && phase !== 'testing'
   const canSave = !!boardId && !!parsedFileKey
 
   return (
@@ -216,120 +214,56 @@ export function SettingsView({
 
       {errorMessage && <ErrorBanner message={errorMessage} />}
 
-      <fieldset className="radio-group">
-        <legend>Where do tickets go?</legend>
-        <label className="radio-row">
-          <input
-            type="radio"
-            name="provider"
-            value="notion"
-            checked={providerId === 'notion'}
-            onChange={() => setProviderId('notion')}
-          />
-          Notion
-        </label>
-        <label className="radio-row">
-          <input
-            type="radio"
-            name="provider"
-            value="azure"
-            checked={providerId === 'azure'}
-            onChange={() => setProviderId('azure')}
-          />
-          Azure DevOps
-        </label>
-      </fieldset>
+      <Input
+        label="Azure DevOps organization"
+        value={org}
+        onChange={setOrg}
+        placeholder="e.g. myorg"
+      />
+      <Input
+        label="Personal access token"
+        value={token}
+        onChange={setToken}
+        type="password"
+        placeholder="paste your PAT"
+      />
 
-      {providerId === 'azure' && (
-        <>
-          <Input
-            label="Azure DevOps organization"
-            value={org}
-            onChange={setOrg}
-            placeholder="e.g. myorg"
-          />
-          <Input
-            label="Personal access token"
-            value={token}
-            onChange={setToken}
-            type="password"
-            placeholder="paste your PAT"
-          />
-        </>
-      )}
-
-      {providerId === 'notion' && (
-        <Input
-          label="Notion integration token"
-          value={token}
-          onChange={setToken}
-          type="password"
-          placeholder="secret_…"
-        />
-      )}
-
-      {providerId && (
-        <div className="row" style={{ marginBottom: 12 }}>
-          <Button variant="primary" disabled={!canTest} onClick={onTest}>
-            {phase === 'testing' ? 'Testing…' : 'Test connection'}
-          </Button>
-        </div>
-      )}
-
-      {phase === 'loaded' && boards.length === 0 && providerId === 'notion' && (
-        <p style={{ marginTop: 10, opacity: 0.85 }}>
-          No databases found. In Notion, open your target database → ••• → Connections
-          and share each target database with this integration.
-        </p>
-      )}
+      <div className="row" style={{ marginBottom: 12 }}>
+        <Button variant="primary" disabled={!canTest} onClick={onTest}>
+          {phase === 'testing' ? 'Testing…' : 'Test connection'}
+        </Button>
+      </div>
 
       {phase === 'loaded' && boards.length > 0 && (
         <div style={{ marginTop: 4 }}>
-          {providerId === 'notion' && (
-            <div className="field">
-              <label htmlFor="db">Database</label>
-              <select id="db" value={boardId} onChange={(e) => setBoardId(e.target.value)}>
-                {boards.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {providerId === 'azure' && (
-            <>
-              <div className="field">
-                <label htmlFor="project">Project</label>
-                <select
-                  id="project"
-                  value={selectedProject}
-                  onChange={(e) => onChangeProject(e.target.value)}
-                >
-                  {projects.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="field">
-                <label htmlFor="wit">Work item type</label>
-                <select
-                  id="wit"
-                  value={selectedWorkItemType}
-                  onChange={(e) => onChangeWorkItemType(e.target.value)}
-                >
-                  {workItemTypesForProject.map((w) => (
-                    <option key={w} value={w}>
-                      {w}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </>
-          )}
+          <div className="field">
+            <label htmlFor="project">Project</label>
+            <select
+              id="project"
+              value={selectedProject}
+              onChange={(e) => onChangeProject(e.target.value)}
+            >
+              {projects.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="wit">Work item type</label>
+            <select
+              id="wit"
+              value={selectedWorkItemType}
+              onChange={(e) => onChangeWorkItemType(e.target.value)}
+            >
+              {workItemTypesForProject.map((w) => (
+                <option key={w} value={w}>
+                  {w}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <Input
             label="Figma file URL"

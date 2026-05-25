@@ -33,7 +33,7 @@ npm run typecheck
 2. In the plugin Settings, paste the PAT in the format `org|token` (e.g. `myorg|abc123...`).
 3. Pick the **project / work item type** combo. Work item types are the defaults across Agile/Scrum/Basic templates: Bug, Task, User Story, Feature, Epic. (Team is not required — work items are created at the project root.)
 
-> A Notion provider also exists in the codebase but is not part of the published listing. See `src/providers/notion.ts` and the architecture section below.
+> A Notion provider lives in `src/providers/notion.ts` but is not wired into the published UI or the manifest's allowed network hosts. See the architecture section below.
 
 ## Manual QA checklist before release
 
