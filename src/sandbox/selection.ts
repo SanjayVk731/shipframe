@@ -21,6 +21,7 @@ export function classifySelection(nodes: readonly SceneNode[]): SelectionState {
     link: readLink(node),
     annotationsCount: countAnnotations(node),
     textLayersCount: countTextLayers(node),
+    hasDraftPin: node.getPluginData('aiDraftPin') === '1',
   }
 }
 

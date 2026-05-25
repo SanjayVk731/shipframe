@@ -34,6 +34,7 @@ describe('shared types', () => {
       link: null,
       annotationsCount: 0,
       textLayersCount: 0,
+      hasDraftPin: false,
     }
     expectTypeOf(empty).toMatchTypeOf<SelectionState>()
     expectTypeOf(multi).toMatchTypeOf<SelectionState>()

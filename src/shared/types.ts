@@ -30,6 +30,7 @@ export type SelectionState =
       link: TicketLink | null
       annotationsCount: number
       textLayersCount: number
+      hasDraftPin: boolean
     }
 
 export interface TicketInput {
