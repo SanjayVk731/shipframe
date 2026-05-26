@@ -36,7 +36,7 @@ describe('draftFromContext (Anthropic)', () => {
           }),
       },
     ])
-    const r = await draftFromContext(ctx, { provider: 'anthropic', key: 'k' })
+    const r = await draftFromContext(ctx, { provider: 'anthropic', key: 'k' }, new Uint8Array([1]))
     expect(r.ok).toBe(true)
     if (!r.ok) return
     expect(r.value.title).toBe('T')
@@ -57,7 +57,7 @@ describe('draftFromContext (Anthropic)', () => {
         response: () => jsonResponse(200, { content: [{ type: 'text', text: '{}' }] }),
       },
     ])
-    await draftFromContext(ctx, { provider: 'anthropic', key: 'k' })
+    await draftFromContext(ctx, { provider: 'anthropic', key: 'k' }, new Uint8Array([1]))
     const headers = capturedInit?.headers as Record<string, string> | undefined
     expect(headers?.['anthropic-dangerous-direct-browser-access']).toBe('true')
     expect(headers?.['anthropic-version']).toBe('2023-06-01')
@@ -68,7 +68,7 @@ describe('draftFromContext (Anthropic)', () => {
     installFetch([
       { matches: () => true, response: () => jsonResponse(401, { error: 'bad key' }) },
     ])
-    const r = await draftFromContext(ctx, { provider: 'anthropic', key: 'k' })
+    const r = await draftFromContext(ctx, { provider: 'anthropic', key: 'k' }, new Uint8Array([1]))
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(r.reason).toBe('auth_failed')
@@ -76,7 +76,7 @@ describe('draftFromContext (Anthropic)', () => {
 
   it('returns rate_limited on 429', async () => {
     installFetch([{ matches: () => true, response: () => jsonResponse(429, {}) }])
-    const r = await draftFromContext(ctx, { provider: 'anthropic', key: 'k' })
+    const r = await draftFromContext(ctx, { provider: 'anthropic', key: 'k' }, new Uint8Array([1]))
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(r.reason).toBe('rate_limited')
@@ -84,7 +84,7 @@ describe('draftFromContext (Anthropic)', () => {
 
   it('returns server_error on 500', async () => {
     installFetch([{ matches: () => true, response: () => jsonResponse(500, {}) }])
-    const r = await draftFromContext(ctx, { provider: 'anthropic', key: 'k' })
+    const r = await draftFromContext(ctx, { provider: 'anthropic', key: 'k' }, new Uint8Array([1]))
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(r.reason).toBe('server_error')
@@ -97,7 +97,7 @@ describe('draftFromContext (Anthropic)', () => {
         throw new Error('boom')
       }),
     )
-    const r = await draftFromContext(ctx, { provider: 'anthropic', key: 'k' })
+    const r = await draftFromContext(ctx, { provider: 'anthropic', key: 'k' }, new Uint8Array([1]))
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(r.reason).toBe('network_error')
@@ -119,7 +119,7 @@ describe('draftFromContext (Anthropic)', () => {
         },
       },
     ])
-    const r = await draftFromContext(ctx, { provider: 'anthropic', key: 'k' })
+    const r = await draftFromContext(ctx, { provider: 'anthropic', key: 'k' }, new Uint8Array([1]))
     expect(r.ok).toBe(true)
     if (!r.ok) return
     expect(r.value.title).toBe('T')
@@ -133,7 +133,7 @@ describe('draftFromContext (Anthropic)', () => {
         response: () => jsonResponse(200, { content: [{ type: 'text', text: 'not json' }] }),
       },
     ])
-    const r = await draftFromContext(ctx, { provider: 'anthropic', key: 'k' })
+    const r = await draftFromContext(ctx, { provider: 'anthropic', key: 'k' }, new Uint8Array([1]))
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(r.reason).toBe('unknown')
@@ -163,11 +163,15 @@ describe('draftFromContext (Azure OpenAI)', () => {
           }),
       },
     ])
-    await draftFromContext(ctx, {
-      provider: 'azure-openai',
-      key: 'azkey',
-      endpoint,
-    })
+    await draftFromContext(
+      ctx,
+      {
+        provider: 'azure-openai',
+        key: 'azkey',
+        endpoint,
+      },
+      new Uint8Array([1]),
+    )
     expect(capturedUrl).toBe(endpoint)
     const headers = capturedInit?.headers as Record<string, string> | undefined
     expect(headers?.['api-key']).toBe('azkey')
@@ -190,11 +194,15 @@ describe('draftFromContext (Azure OpenAI)', () => {
           }),
       },
     ])
-    const r = await draftFromContext(ctx, {
-      provider: 'azure-openai',
-      key: 'k',
-      endpoint,
-    })
+    const r = await draftFromContext(
+      ctx,
+      {
+        provider: 'azure-openai',
+        key: 'k',
+        endpoint,
+      },
+      new Uint8Array([1]),
+    )
     expect(r.ok && r.value.title).toBe('T')
   })
 
@@ -202,11 +210,15 @@ describe('draftFromContext (Azure OpenAI)', () => {
     installFetch([
       { matches: () => true, response: () => jsonResponse(401, { error: 'bad key' }) },
     ])
-    const r = await draftFromContext(ctx, {
-      provider: 'azure-openai',
-      key: 'k',
-      endpoint,
-    })
+    const r = await draftFromContext(
+      ctx,
+      {
+        provider: 'azure-openai',
+        key: 'k',
+        endpoint,
+      },
+      new Uint8Array([1]),
+    )
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(r.reason).toBe('auth_failed')
@@ -214,11 +226,15 @@ describe('draftFromContext (Azure OpenAI)', () => {
 
   it('returns not_found on 404 (wrong deployment)', async () => {
     installFetch([{ matches: () => true, response: () => jsonResponse(404, {}) }])
-    const r = await draftFromContext(ctx, {
-      provider: 'azure-openai',
-      key: 'k',
-      endpoint,
-    })
+    const r = await draftFromContext(
+      ctx,
+      {
+        provider: 'azure-openai',
+        key: 'k',
+        endpoint,
+      },
+      new Uint8Array([1]),
+    )
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(r.reason).toBe('not_found')
@@ -227,11 +243,15 @@ describe('draftFromContext (Azure OpenAI)', () => {
   it('returns auth_failed without calling fetch when endpoint is missing', async () => {
     const fetchFn = vi.fn()
     vi.stubGlobal('fetch', fetchFn)
-    const r = await draftFromContext(ctx, {
-      provider: 'azure-openai',
-      key: 'k',
-      // endpoint omitted deliberately — defensive guard in draft.ts
-    } as unknown as Parameters<typeof draftFromContext>[1])
+    const r = await draftFromContext(
+      ctx,
+      {
+        provider: 'azure-openai',
+        key: 'k',
+        // endpoint omitted deliberately — defensive guard in draft.ts
+      } as unknown as Parameters<typeof draftFromContext>[1],
+      new Uint8Array([1]),
+    )
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(r.reason).toBe('auth_failed')
@@ -257,7 +277,7 @@ describe('draftFromContext (OpenAI)', () => {
           }),
       },
     ])
-    await draftFromContext(ctx, { provider: 'openai', key: 'k' })
+    await draftFromContext(ctx, { provider: 'openai', key: 'k' }, new Uint8Array([1]))
     const headers = capturedInit?.headers as Record<string, string> | undefined
     expect(headers?.['authorization']).toBe('Bearer k')
   })
@@ -272,7 +292,60 @@ describe('draftFromContext (OpenAI)', () => {
           }),
       },
     ])
-    const r = await draftFromContext(ctx, { provider: 'openai', key: 'k' })
+    const r = await draftFromContext(ctx, { provider: 'openai', key: 'k' }, new Uint8Array([1]))
     expect(r.ok && r.value.title).toBe('T')
+  })
+})
+
+describe('draftFromContext image + pin fallback', () => {
+  it('forwards image content to the adapter (anthropic shape)', async () => {
+    const fetchFn = installFetch([
+      {
+        matches: (url) => url.includes('api.anthropic.com'),
+        response: () =>
+          jsonResponse(200, {
+            content: [
+              { type: 'text', text: JSON.stringify({ title: 'T', main: 'M', pinMarkdown: 'P' }) },
+            ],
+          }),
+      },
+    ])
+    const r = await draftFromContext(
+      { frameName: 'F', workItemType: 'Bug', annotations: [], textLayers: ['Hello'] },
+      { provider: 'anthropic', key: 'k' },
+      new Uint8Array([1, 2, 3]),
+    )
+    expect(r.ok).toBe(true)
+    const body = JSON.parse(fetchFn.mock.calls[0]![1]!.body as string)
+    expect(body.messages[0].content[0].type).toBe('image')
+  })
+
+  it('synthesizes pinMarkdown when the LLM omits it', async () => {
+    installFetch([
+      {
+        matches: (url) => url.includes('api.anthropic.com'),
+        response: () =>
+          jsonResponse(200, {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify({ title: 'Login broken', main: 'Submit fails on enter.\nMore detail.' }),
+              },
+            ],
+          }),
+      },
+    ])
+    const r = await draftFromContext(
+      { frameName: 'F', workItemType: 'Bug', annotations: [], textLayers: [] },
+      { provider: 'anthropic', key: 'k' },
+      new Uint8Array([1]),
+    )
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.value.pinMarkdown).toBeDefined()
+      expect(r.value.pinMarkdown).toContain('Login broken')
+      expect(r.value.pinMarkdown).toContain('Submit fails on enter.')
+      expect(r.value.pinMarkdown).not.toContain('More detail.')
+    }
   })
 })
