@@ -80,3 +80,31 @@ describe('parseDraftResponse', () => {
     expect(r.ok && r.value).toEqual({ title: 'T', reproSteps: '42' })
   })
 })
+
+describe('parseDraftResponse pinMarkdown', () => {
+  it('preserves pinMarkdown regardless of WIT', () => {
+    const raw = JSON.stringify({ title: 'T', main: 'M', pinMarkdown: 'pin' })
+    for (const wit of ['Bug', 'User Story', 'Task', 'Feature', 'Epic', undefined]) {
+      const r = parseDraftResponse(raw, wit)
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.value.pinMarkdown).toBe('pin')
+    }
+  })
+
+  it('truncates pinMarkdown at 280 chars with ellipsis', () => {
+    const long = 'x'.repeat(500)
+    const r = parseDraftResponse(JSON.stringify({ pinMarkdown: long }), 'Bug')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.value.pinMarkdown).toBeDefined()
+      expect(r.value.pinMarkdown!.length).toBe(280)
+      expect(r.value.pinMarkdown!.endsWith('…')).toBe(true)
+    }
+  })
+
+  it('omits pinMarkdown when absent', () => {
+    const r = parseDraftResponse(JSON.stringify({ title: 'T' }), 'Bug')
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.value.pinMarkdown).toBeUndefined()
+  })
+})

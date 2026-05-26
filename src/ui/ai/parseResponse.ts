@@ -1,4 +1,4 @@
-import { DRAFT_KEYS, type DraftOutput } from './types'
+import { DRAFT_KEYS, PIN_MARKDOWN_MAX, type DraftOutput } from './types'
 
 export type ParseResult =
   | { ok: true; value: DraftOutput }
@@ -8,15 +8,15 @@ function keysFor(wit: string | undefined): Array<keyof DraftOutput> {
   const w = wit ?? 'User Story'
   switch (w) {
     case 'Bug':
-      return ['title', 'main', 'reproSteps', 'expected', 'actual']
+      return ['title', 'main', 'reproSteps', 'expected', 'actual', 'pinMarkdown']
     case 'Task':
     case 'Epic':
-      return ['title', 'main', 'acceptanceCriteria']
+      return ['title', 'main', 'acceptanceCriteria', 'pinMarkdown']
     case 'User Story':
     case 'Feature':
-      return ['title', 'main', 'acceptanceCriteria', 'outOfScope']
+      return ['title', 'main', 'acceptanceCriteria', 'outOfScope', 'pinMarkdown']
     default:
-      return ['title', 'main', 'acceptanceCriteria', 'outOfScope']
+      return ['title', 'main', 'acceptanceCriteria', 'outOfScope', 'pinMarkdown']
   }
 }
 
@@ -30,6 +30,11 @@ function coerce(value: unknown): string | undefined {
   if (typeof value === 'string') return value
   if (typeof value === 'number' || typeof value === 'boolean') return String(value)
   return undefined
+}
+
+function truncatePin(s: string): string {
+  if (s.length <= PIN_MARKDOWN_MAX) return s
+  return s.slice(0, PIN_MARKDOWN_MAX - 1) + '…'
 }
 
 export function parseDraftResponse(
@@ -52,7 +57,8 @@ export function parseDraftResponse(
     const rawValue = (parsed as Record<string, unknown>)[key]
     if (rawValue === undefined) continue
     const s = coerce(rawValue)
-    if (s !== undefined) value[key] = s
+    if (s === undefined) continue
+    value[key] = key === 'pinMarkdown' ? truncatePin(s) : s
   }
   return { ok: true, value }
 }
