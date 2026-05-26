@@ -364,6 +364,40 @@ describe('azureProvider.createTicket with inlineImage', () => {
     expect(String(desc.value)).toContain('<p>body</p>')
   })
 
+  it('runs the assembled description through DOMPurify (strips event handlers from pre-sanitized body)', async () => {
+    const fetchFn = installFetch([
+      {
+        matches: (url) => url.includes('/_apis/wit/attachments'),
+        response: () => jsonResponse(201, { url: 'https://dev.azure.com/o/_apis/wit/attachments/abc' }),
+      },
+      {
+        matches: (url) => url.includes('/_apis/wit/workitems/$Bug'),
+        response: () =>
+          jsonResponse(200, { id: 7, _links: { html: { href: 'https://x' } } }),
+      },
+    ])
+    // Even if a malicious <img onerror> somehow reached the description, the
+    // final defense-in-depth sanitize pass must strip the handler.
+    const r = await azureProvider.createTicket('org|tok', 'org|p|Bug', {
+      title: 'T',
+      description: '<p>body</p><img src="x" alt="y" onerror="alert(1)"/>',
+      type: null,
+      priority: null,
+      assigneeId: null,
+      labelIds: [],
+      figmaDeepLink: 'https://figma.com/x',
+      inlineImage: { bytes: new Uint8Array([1]), filename: 'frame.png' },
+    })
+    expect(r.ok).toBe(true)
+    const wiCall = fetchFn.mock.calls.find((c) => String(c[0]).includes('/workitems/$Bug'))!
+    const ops = JSON.parse(wiCall[1]!.body as string) as Array<{ path: string; value: unknown }>
+    const desc = ops.find((o) => o.path === '/fields/System.Description')!
+    expect(String(desc.value)).not.toContain('onerror')
+    expect(String(desc.value)).not.toContain('alert(1)')
+    // The legitimate uploaded image is still present.
+    expect(String(desc.value)).toContain('https://dev.azure.com/o/_apis/wit/attachments/abc')
+  })
+
   it('falls back to plain description when the image upload fails', async () => {
     const fetchFn = installFetch([
       {

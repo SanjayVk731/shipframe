@@ -1,5 +1,6 @@
 import type { TicketProvider } from './types'
 import { tryRequest } from './tryRequest'
+import { sanitizeHtml } from '../ui/composeDescription'
 
 const API_VERSION = 'api-version=7.1'
 
@@ -140,7 +141,12 @@ export const azureProvider: TicketProvider = {
       )
       if (up.ok) {
         const imgTag = `<img src="${up.value.url}" alt="Frame screenshot"/>`
-        descriptionBody = `${imgTag}\n${descriptionBody}`
+        // Defense in depth: re-run the assembled (img + already-sanitized body)
+        // through the SAME conservative allow-list. The img URL is trusted (it
+        // comes from Azure's own attachment response), but this guarantees no
+        // event handler or javascript: URL can ever reach System.Description,
+        // regardless of how the img tag was built.
+        descriptionBody = sanitizeHtml(`${imgTag}\n${descriptionBody}`)
       }
     }
     if (descriptionBody && descriptionBody.length > 0) {

@@ -58,6 +58,17 @@ const ALLOWED_TAGS = [
 ]
 const ALLOWED_ATTR = ['href', 'src', 'alt']
 
+/**
+ * The shared sanitizer used for all description HTML. Exported so providers that
+ * assemble extra HTML (e.g. Azure prepending an `<img>` built from an upload URL)
+ * can run the final string through the SAME conservative allow-list — a
+ * defense-in-depth pass that strips event handlers / `javascript:` URLs even
+ * though the inputs are already trusted.
+ */
+export function sanitizeHtml(html: string): string {
+  return sanitize(html)
+}
+
 function sanitize(html: string): string {
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS,
