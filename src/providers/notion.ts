@@ -70,6 +70,41 @@ function discoverPropertyNames(db: {
   return { titleProp, typeProp, priorityProp, assigneeProp, labelsProp }
 }
 
+async function uploadFileForBlock(
+  pat: string,
+  bytes: Uint8Array,
+  filename: string,
+): Promise<{ ok: true; uploadId: string } | { ok: false }> {
+  const create = await tryRequest<{ id: string }>(() =>
+    fetch(`${API}/file_uploads`, {
+      method: 'POST',
+      headers: headers(pat),
+      body: JSON.stringify({ filename, content_type: 'image/png' }),
+    }),
+  )
+  if (!create.ok) return { ok: false }
+  const form = new FormData()
+  form.append(
+    'file',
+    new Blob([new Uint8Array(bytes)], { type: 'image/png' }),
+    filename,
+  )
+  const send = await tryRequest<unknown>(() =>
+    fetch(`${API}/file_uploads/${create.value.id}/send`, {
+      method: 'POST',
+      // NOTE: do NOT set Content-Type here — the browser sets the multipart
+      // boundary automatically. Only Authorization + Notion-Version.
+      headers: {
+        Authorization: `Bearer ${pat}`,
+        'Notion-Version': VERSION,
+      },
+      body: form,
+    }),
+  )
+  if (!send.ok) return { ok: false }
+  return { ok: true, uploadId: create.value.id }
+}
+
 export const notionProvider: TicketProvider = {
   id: 'notion',
   displayName: 'Notion',
@@ -215,6 +250,29 @@ export const notionProvider: TicketProvider = {
       })
     }
 
+    // undefined when no inline image was requested; true/false to report whether
+    // the upload succeeded so the UI can warn on silent drop.
+    let inlineImageAttached: boolean | undefined
+    if (ticket.inlineImage) {
+      inlineImageAttached = false
+      const up = await uploadFileForBlock(
+        pat,
+        ticket.inlineImage.bytes,
+        ticket.inlineImage.filename,
+      )
+      if (up.ok) {
+        children.push({
+          object: 'block',
+          type: 'image',
+          image: {
+            type: 'file_upload',
+            file_upload: { id: up.uploadId },
+          },
+        })
+        inlineImageAttached = true
+      }
+    }
+
     const r = await tryRequest<{ id: string; url: string }>(() =>
       fetch(`${API}/pages`, {
         method: 'POST',
@@ -227,7 +285,11 @@ export const notionProvider: TicketProvider = {
       }),
     )
     if (!r.ok) return r
-    return { ok: true, status: r.status, value: { id: r.value.id, url: r.value.url } }
+    return {
+      ok: true,
+      status: r.status,
+      value: { id: r.value.id, url: r.value.url, inlineImageAttached },
+    }
   },
 
   async uploadAttachment() {

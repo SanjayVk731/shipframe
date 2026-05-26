@@ -5,6 +5,7 @@ import type {
   ProviderId,
   FrameContext,
 } from '../shared/types'
+import type { AiConfig } from '../storage/aiConfig'
 
 export type UiToSandbox =
   | { type: 'get-selection-state'; requestId: string }
@@ -20,6 +21,9 @@ export type UiToSandbox =
   | { type: 'set-file-config'; config: FileConfig; requestId: string }
   | { type: 'get-pat'; providerId: ProviderId; requestId: string }
   | { type: 'set-pat'; providerId: ProviderId; pat: string; requestId: string }
+  | { type: 'get-ai-config'; requestId: string }
+  | { type: 'set-ai-config'; config: AiConfig; requestId: string }
+  | { type: 'clear-ai-config'; requestId: string }
   | { type: 'focus-node'; nodeId: string; requestId: string }
   | { type: 'open-external'; url: string }
   | {
@@ -31,6 +35,20 @@ export type UiToSandbox =
       requestId: string
     }
   | { type: 'clear-annotation'; nodeId: string; requestId: string }
+  | {
+      type: 'write-ai-annotation'
+      nodeId: string
+      markdown: string
+      requestId: string
+    }
+  | {
+      type: 'append-ticket-id-to-annotation'
+      nodeId: string
+      providerId: ProviderId
+      ticketId: string
+      requestId: string
+    }
+  | { type: 'clear-ai-annotation'; nodeId: string; requestId: string }
   | {
       type: 'get-frame-context'
       nodeId: string
@@ -50,6 +68,7 @@ export type SandboxToUi =
     }
   | { type: 'file-config'; config: FileConfig | null; requestId: string }
   | { type: 'pat'; providerId: ProviderId; pat: string | null; requestId: string }
+  | { type: 'ai-config'; config: AiConfig | null; requestId: string }
   | { type: 'ack'; requestId: string }
   | { type: 'error'; reason: string; requestId: string }
   | { type: 'selection-changed'; state: SelectionState }
@@ -64,10 +83,16 @@ const UI_TYPES = new Set<UiToSandbox['type']>([
   'set-file-config',
   'get-pat',
   'set-pat',
+  'get-ai-config',
+  'set-ai-config',
+  'clear-ai-config',
   'focus-node',
   'open-external',
   'sync-annotation',
   'clear-annotation',
+  'write-ai-annotation',
+  'append-ticket-id-to-annotation',
+  'clear-ai-annotation',
   'get-frame-context',
 ])
 
@@ -76,6 +101,7 @@ const SANDBOX_TYPES = new Set<SandboxToUi['type']>([
   'thumbnail',
   'file-config',
   'pat',
+  'ai-config',
   'ack',
   'error',
   'selection-changed',

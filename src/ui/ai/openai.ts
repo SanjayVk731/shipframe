@@ -1,11 +1,14 @@
 // src/ui/ai/openai.ts
 import { tryRequest } from '../../providers/tryRequest'
 import type { Result } from '../../providers/types'
+import { bytesToBase64 } from './downscale'
 
 export interface OpenAiCallInput {
   apiKey: string
   systemPrompt: string
   userPrompt: string
+  /** null sends a text-only request (the "Include image" toggle was off). */
+  imageBytes: Uint8Array | null
 }
 
 const ENDPOINT = 'https://api.openai.com/v1/chat/completions'
@@ -15,6 +18,17 @@ const MAX_TOKENS = 2048
 export async function callOpenAI(
   input: OpenAiCallInput,
 ): Promise<Result<string>> {
+  const userContent = input.imageBytes
+    ? [
+        { type: 'text', text: input.userPrompt },
+        {
+          type: 'image_url',
+          image_url: {
+            url: `data:image/png;base64,${bytesToBase64(input.imageBytes)}`,
+          },
+        },
+      ]
+    : input.userPrompt
   return tryRequest<string>(
     () =>
       fetch(ENDPOINT, {
@@ -29,7 +43,7 @@ export async function callOpenAI(
           response_format: { type: 'json_object' },
           messages: [
             { role: 'system', content: input.systemPrompt },
-            { role: 'user', content: input.userPrompt },
+            { role: 'user', content: userContent },
           ],
         }),
       }),

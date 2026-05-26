@@ -1,5 +1,6 @@
 import type { TicketProvider } from './types'
 import { tryRequest } from './tryRequest'
+import { sanitizeHtml } from '../ui/composeDescription'
 
 const API_VERSION = 'api-version=7.1'
 
@@ -110,11 +111,54 @@ export const azureProvider: TicketProvider = {
     // already handles escaping per section. The Figma link is attached as a
     // Hyperlink relation below, not embedded here, so description edits in
     // Azure don't clobber it.
-    if (ticket.description) {
+    //
+    // If an inline image was provided, upload it via Azure's attachment endpoint
+    // first, then prepend an <img> referencing the returned URL. The <img> tag is
+    // trusted (the URL comes from Azure's own attachment response) — we don't
+    // re-escape ticket.description, which is already sanitized HTML. If the upload
+    // fails we proceed with the plain description rather than failing createTicket.
+    let descriptionBody = ticket.description ?? ''
+    // undefined when no inline image was requested; true/false to report whether
+    // the upload succeeded so the UI can warn on silent drop.
+    let inlineImageAttached: boolean | undefined
+    if (ticket.inlineImage) {
+      inlineImageAttached = false
+      // Wrap in a Blob: Figma's UI iframe runtime stringifies Uint8Array bodies
+      // ("[object Uint8Array]") when passed directly to fetch().
+      const blob = new Blob([new Uint8Array(ticket.inlineImage.bytes)], {
+        type: 'image/png',
+      })
+      const up = await tryRequest<{ url: string }>(() =>
+        fetch(
+          `https://dev.azure.com/${org}/_apis/wit/attachments?fileName=${encodeURIComponent(
+            ticket.inlineImage!.filename,
+          )}&${API_VERSION}`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: authHeader(token),
+              'Content-Type': 'application/octet-stream',
+            },
+            body: blob,
+          },
+        ),
+      )
+      if (up.ok) {
+        const imgTag = `<img src="${up.value.url}" alt="Frame screenshot"/>`
+        // Defense in depth: re-run the assembled (img + already-sanitized body)
+        // through the SAME conservative allow-list. The img URL is trusted (it
+        // comes from Azure's own attachment response), but this guarantees no
+        // event handler or javascript: URL can ever reach System.Description,
+        // regardless of how the img tag was built.
+        descriptionBody = sanitizeHtml(`${imgTag}\n${descriptionBody}`)
+        inlineImageAttached = true
+      }
+    }
+    if (descriptionBody && descriptionBody.length > 0) {
       ops.push({
         op: 'add',
         path: '/fields/System.Description',
-        value: ticket.description,
+        value: descriptionBody,
       })
     }
     if (ticket.priority)
@@ -176,7 +220,11 @@ export const azureProvider: TicketProvider = {
     return {
       ok: true,
       status: r.status,
-      value: { id: String(r.value.id), url: r.value._links.html.href },
+      value: {
+        id: String(r.value.id),
+        url: r.value._links.html.href,
+        inlineImageAttached,
+      },
     }
   },
 

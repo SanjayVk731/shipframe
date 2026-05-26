@@ -1,5 +1,6 @@
 import type { SelectionState } from '../shared/types'
 import { readLink } from './nodeLink'
+import { DRAFT_PIN_KEY } from './annotations'
 
 const SUPPORTED: ReadonlySet<string> = new Set([
   'FRAME',
@@ -21,6 +22,7 @@ export function classifySelection(nodes: readonly SceneNode[]): SelectionState {
     link: readLink(node),
     annotationsCount: countAnnotations(node),
     textLayersCount: countTextLayers(node),
+    hasDraftPin: node.getPluginData(DRAFT_PIN_KEY) === '1',
   }
 }
 

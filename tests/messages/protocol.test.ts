@@ -38,12 +38,65 @@ describe('protocol guards', () => {
       | 'set-file-config'
       | 'get-pat'
       | 'set-pat'
+      | 'get-ai-config'
+      | 'set-ai-config'
+      | 'clear-ai-config'
       | 'focus-node'
       | 'open-external'
       | 'sync-annotation'
       | 'clear-annotation'
       | 'get-frame-context'
+      | 'write-ai-annotation'
+      | 'append-ticket-id-to-annotation'
+      | 'clear-ai-annotation'
     >()
+  })
+})
+
+describe('isUiToSandbox new types', () => {
+  it('accepts write-ai-annotation', () => {
+    expect(
+      isUiToSandbox({
+        type: 'write-ai-annotation',
+        nodeId: '1:1',
+        markdown: 'body',
+        requestId: 'r1',
+      }),
+    ).toBe(true)
+  })
+
+  it('accepts append-ticket-id-to-annotation', () => {
+    expect(
+      isUiToSandbox({
+        type: 'append-ticket-id-to-annotation',
+        nodeId: '1:1',
+        providerId: 'azure',
+        ticketId: '42',
+        requestId: 'r1',
+      }),
+    ).toBe(true)
+  })
+
+  it('accepts clear-ai-annotation', () => {
+    expect(
+      isUiToSandbox({
+        type: 'clear-ai-annotation',
+        nodeId: '1:1',
+        requestId: 'r1',
+      }),
+    ).toBe(true)
+  })
+
+  it('accepts get-ai-config / set-ai-config / clear-ai-config', () => {
+    expect(isUiToSandbox({ type: 'get-ai-config', requestId: 'r1' })).toBe(true)
+    expect(
+      isUiToSandbox({
+        type: 'set-ai-config',
+        config: { provider: 'anthropic', key: 'k' },
+        requestId: 'r1',
+      }),
+    ).toBe(true)
+    expect(isUiToSandbox({ type: 'clear-ai-config', requestId: 'r1' })).toBe(true)
   })
 })
 

@@ -10,6 +10,7 @@ export interface DraftOutput {
   actual?: string
   acceptanceCriteria?: string
   outOfScope?: string
+  pinMarkdown?: string
 }
 
 export const DRAFT_KEYS: Array<keyof DraftOutput> = [
@@ -20,4 +21,7 @@ export const DRAFT_KEYS: Array<keyof DraftOutput> = [
   'actual',
   'acceptanceCriteria',
   'outOfScope',
+  'pinMarkdown',
 ]
+
+export const PIN_MARKDOWN_MAX = 280

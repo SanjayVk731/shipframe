@@ -4,7 +4,14 @@ import { classifySelection, exportThumbnail } from './selection'
 import { writeLink, clearLink } from './nodeLink'
 import { getFileConfig, setFileConfig } from '../storage/fileConfig'
 import { getPat, setPat } from '../storage/credentials'
-import { syncAnnotation, clearAnnotation } from './annotations'
+import { getAiConfig, setAiConfig, clearAiConfig } from '../storage/aiConfig'
+import {
+  syncAnnotation,
+  clearAnnotation,
+  writeAiAnnotation,
+  appendTicketIdToAnnotation,
+  clearAiAnnotation,
+} from './annotations'
 import { collectFrameContext } from './frameContext'
 
 figma.showUI(__html__, { width: 360, height: 560, themeColors: true })
@@ -114,6 +121,21 @@ figma.ui.onmessage = async (raw: unknown) => {
         post({ type: 'ack', requestId: msg.requestId })
         return
       }
+      case 'get-ai-config': {
+        const config = (await getAiConfig()) ?? null
+        post({ type: 'ai-config', config, requestId: msg.requestId })
+        return
+      }
+      case 'set-ai-config': {
+        await setAiConfig(msg.config)
+        post({ type: 'ack', requestId: msg.requestId })
+        return
+      }
+      case 'clear-ai-config': {
+        await clearAiConfig()
+        post({ type: 'ack', requestId: msg.requestId })
+        return
+      }
       case 'focus-node': {
         const node = await findNode(msg.nodeId)
         if (!node) {
@@ -149,6 +171,28 @@ figma.ui.onmessage = async (raw: unknown) => {
         } else {
           post({ type: 'error', reason: result.reason, requestId: msg.requestId })
         }
+        return
+      }
+      case 'write-ai-annotation': {
+        const result = await writeAiAnnotation(msg.nodeId, msg.markdown)
+        if (result.ok) post({ type: 'ack', requestId: msg.requestId })
+        else post({ type: 'error', reason: result.reason, requestId: msg.requestId })
+        return
+      }
+      case 'append-ticket-id-to-annotation': {
+        const result = await appendTicketIdToAnnotation(
+          msg.nodeId,
+          msg.providerId,
+          msg.ticketId,
+        )
+        if (result.ok) post({ type: 'ack', requestId: msg.requestId })
+        else post({ type: 'error', reason: result.reason, requestId: msg.requestId })
+        return
+      }
+      case 'clear-ai-annotation': {
+        const result = await clearAiAnnotation(msg.nodeId)
+        if (result.ok) post({ type: 'ack', requestId: msg.requestId })
+        else post({ type: 'error', reason: result.reason, requestId: msg.requestId })
         return
       }
       case 'get-frame-context': {

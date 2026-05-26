@@ -332,6 +332,47 @@ describe('notion.createTicket', () => {
   })
 })
 
+describe('notionProvider.createTicket with inlineImage', () => {
+  const dbSchema = { properties: { Name: { type: 'title' } } }
+
+  it('uploads the file, sends it, and appends an image block referencing the upload', async () => {
+    const fetchFn = installFetch([
+      { matches: (url) => url.endsWith('/v1/databases/db1'), response: () => jsonResponse(200, dbSchema) },
+      { matches: (url) => url.endsWith('/v1/file_uploads'), response: () => jsonResponse(200, { id: 'upload-1' }) },
+      { matches: (url) => url.endsWith('/v1/file_uploads/upload-1/send'), response: () => jsonResponse(200, { id: 'upload-1', status: 'uploaded' }) },
+      { matches: (url) => url.endsWith('/v1/pages'), response: () => jsonResponse(200, { id: 'page-1', url: 'https://notion.so/page-1' }) },
+    ])
+    const r = await notionProvider.createTicket('secret', 'db1', {
+      title: 'T', description: 'desc', type: null, priority: null, assigneeId: null,
+      labelIds: [], figmaDeepLink: 'https://figma.com/x',
+      inlineImage: { bytes: new Uint8Array([1, 2]), filename: 'frame.png' },
+    })
+    expect(r.ok).toBe(true)
+    const pagesCall = fetchFn.mock.calls.find((c) => String(c[0]).endsWith('/v1/pages'))!
+    const body = JSON.parse(pagesCall[1]!.body as string) as { children: Array<{ type: string }> }
+    expect(body.children.some((c) => c.type === 'image')).toBe(true)
+    if (r.ok) expect(r.value.inlineImageAttached).toBe(true)
+  })
+
+  it('still creates the page when the file upload fails', async () => {
+    const fetchFn = installFetch([
+      { matches: (url) => url.endsWith('/v1/databases/db1'), response: () => jsonResponse(200, dbSchema) },
+      { matches: (url) => url.endsWith('/v1/file_uploads'), response: () => jsonResponse(500, { message: 'boom' }) },
+      { matches: (url) => url.endsWith('/v1/pages'), response: () => jsonResponse(200, { id: 'page-1', url: 'https://notion.so/page-1' }) },
+    ])
+    const r = await notionProvider.createTicket('secret', 'db1', {
+      title: 'T', description: 'desc', type: null, priority: null, assigneeId: null,
+      labelIds: [], figmaDeepLink: 'https://figma.com/x',
+      inlineImage: { bytes: new Uint8Array([1]), filename: 'frame.png' },
+    })
+    expect(r.ok).toBe(true)
+    const pagesCall = fetchFn.mock.calls.find((c) => String(c[0]).endsWith('/v1/pages'))!
+    const body = JSON.parse(pagesCall[1]!.body as string) as { children: Array<{ type: string }> }
+    expect(body.children.some((c) => c.type === 'image')).toBe(false)
+    if (r.ok) expect(r.value.inlineImageAttached).toBe(false)
+  })
+})
+
 describe('notion.uploadAttachment', () => {
   it('returns supported:false without making any request', async () => {
     const fn = installFetch([])

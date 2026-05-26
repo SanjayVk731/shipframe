@@ -2,8 +2,23 @@ import { describe, expect, it } from 'vitest'
 import { collectFrameContext, FRAME_CONTEXT_LIMITS } from '../../src/sandbox/frameContext'
 import { installFigmaMock, type MockNode } from '../helpers/figmaMock'
 
-function text(id: string, characters: string, visible = true): MockNode {
+function withPluginData(
+  node: Omit<MockNode, 'pluginData' | 'getPluginData' | 'setPluginData'>,
+): MockNode {
+  const pluginData = new Map<string, string>()
   return {
+    ...node,
+    pluginData,
+    getPluginData: (k: string) => pluginData.get(k) ?? '',
+    setPluginData: (k: string, v: string) => {
+      if (v === '') pluginData.delete(k)
+      else pluginData.set(k, v)
+    },
+  }
+}
+
+function text(id: string, characters: string, visible = true): MockNode {
+  return withPluginData({
     id,
     type: 'TEXT',
     name: 'text',
@@ -11,7 +26,7 @@ function text(id: string, characters: string, visible = true): MockNode {
     characters,
     visible,
     annotations: [],
-  }
+  })
 }
 
 describe('collectFrameContext', () => {
@@ -44,23 +59,23 @@ describe('collectFrameContext', () => {
     function deepChild(d: number): MockNode {
       const child = text(`t:${d}`, `level-${d}`)
       if (d >= 6) {
-        return {
+        return withPluginData({
           id: `f:${d}`,
           type: 'FRAME',
           name: `f${d}`,
           children: [child],
           visible: true,
           annotations: [],
-        }
+        })
       }
-      return {
+      return withPluginData({
         id: `f:${d}`,
         type: 'FRAME',
         name: `f${d}`,
         children: [child, deepChild(d + 1)],
         visible: true,
         annotations: [],
-      }
+      })
     }
     makeNode('1:0', 'FRAME', 'root', { children: [deepChild(1)] })
     const ctx = await collectFrameContext('1:0', undefined)

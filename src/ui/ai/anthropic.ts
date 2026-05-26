@@ -1,11 +1,14 @@
 // src/ui/ai/anthropic.ts
 import { tryRequest } from '../../providers/tryRequest'
 import type { Result } from '../../providers/types'
+import { bytesToBase64 } from './downscale'
 
 export interface AnthropicCallInput {
   apiKey: string
   systemPrompt: string
   userPrompt: string
+  /** null sends a text-only request (the "Include image" toggle was off). */
+  imageBytes: Uint8Array | null
 }
 
 const ENDPOINT = 'https://api.anthropic.com/v1/messages'
@@ -15,6 +18,19 @@ const MAX_TOKENS = 2048
 export async function callAnthropic(
   input: AnthropicCallInput,
 ): Promise<Result<string>> {
+  const content = input.imageBytes
+    ? [
+        {
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: 'image/png',
+            data: bytesToBase64(input.imageBytes),
+          },
+        },
+        { type: 'text', text: input.userPrompt },
+      ]
+    : [{ type: 'text', text: input.userPrompt }]
   return tryRequest<string>(
     () =>
       fetch(ENDPOINT, {
@@ -29,7 +45,7 @@ export async function callAnthropic(
           model: MODEL,
           max_tokens: MAX_TOKENS,
           system: input.systemPrompt,
-          messages: [{ role: 'user', content: input.userPrompt }],
+          messages: [{ role: 'user', content }],
         }),
       }),
     async (res) => {

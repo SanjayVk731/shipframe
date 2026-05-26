@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { installFigmaMock } from '../helpers/figmaMock'
 import { classifySelection, exportThumbnail } from '../../src/sandbox/selection'
 
 function n(type: string, overrides: Partial<SceneNode> = {}): SceneNode {
@@ -92,6 +93,53 @@ describe('classifySelection', () => {
     if (result.kind !== 'single') return
     expect(result.annotationsCount).toBe(2)
     expect(result.textLayersCount).toBe(3)
+  })
+})
+
+describe('classifySelection hasDraftPin', () => {
+  beforeEach(() => {
+    installFigmaMock()
+  })
+
+  it('reports hasDraftPin=true when aiDraftPin pluginData is "1"', () => {
+    const pluginData = new Map<string, string>()
+    pluginData.set('aiDraftPin', '1')
+    const node = {
+      id: '1:1',
+      type: 'FRAME',
+      name: 'Frame',
+      visible: true,
+      width: 100,
+      height: 100,
+      children: [],
+      annotations: [],
+      getPluginData: (k: string) => pluginData.get(k) ?? '',
+      setPluginData: (k: string, v: string) => {
+        if (v) pluginData.set(k, v)
+        else pluginData.delete(k)
+      },
+    } as unknown as SceneNode
+    const result = classifySelection([node])
+    expect(result.kind).toBe('single')
+    if (result.kind === 'single') expect(result.hasDraftPin).toBe(true)
+  })
+
+  it('reports hasDraftPin=false when the flag is missing', () => {
+    const node = {
+      id: '1:1',
+      type: 'FRAME',
+      name: 'Frame',
+      visible: true,
+      width: 100,
+      height: 100,
+      children: [],
+      annotations: [],
+      getPluginData: () => '',
+      setPluginData: () => {},
+    } as unknown as SceneNode
+    const result = classifySelection([node])
+    expect(result.kind).toBe('single')
+    if (result.kind === 'single') expect(result.hasDraftPin).toBe(false)
   })
 })
 

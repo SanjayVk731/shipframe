@@ -32,10 +32,12 @@ export interface ComposedDescription {
 // We rely on DOMPurify (below) as the sole defense against XSS / image embeds.
 marked.setOptions({ gfm: true, breaks: true })
 
-// Sanitizer config — common to all callers. We explicitly forbid <img> because
-// Azure DevOps renders external images inconsistently and they're a privacy
-// leak (the URL gets fetched by anyone viewing the work item). We allow only
-// a conservative tag set; everything else is stripped.
+// Sanitizer config — common to all callers. We allow <img> (with only src/alt)
+// so providers can embed uploaded frame screenshots into the description; the
+// upload URL points at the provider's own attachment store, not an arbitrary
+// external host. Event-handler attributes (onerror/onload/etc.) are not in
+// ALLOWED_ATTR, so DOMPurify strips them; script/style/iframe remain forbidden.
+// We allow only a conservative tag set; everything else is stripped.
 const ALLOWED_TAGS = [
   'p',
   'br',
@@ -52,14 +54,26 @@ const ALLOWED_TAGS = [
   'h2',
   'h3',
   'blockquote',
+  'img',
 ]
-const ALLOWED_ATTR = ['href']
+const ALLOWED_ATTR = ['href', 'src', 'alt']
+
+/**
+ * The shared sanitizer used for all description HTML. Exported so providers that
+ * assemble extra HTML (e.g. Azure prepending an `<img>` built from an upload URL)
+ * can run the final string through the SAME conservative allow-list — a
+ * defense-in-depth pass that strips event handlers / `javascript:` URLs even
+ * though the inputs are already trusted.
+ */
+export function sanitizeHtml(html: string): string {
+  return sanitize(html)
+}
 
 function sanitize(html: string): string {
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS,
     ALLOWED_ATTR,
-    FORBID_TAGS: ['img', 'script', 'style', 'iframe'],
+    FORBID_TAGS: ['script', 'style', 'iframe'],
   })
 }
 

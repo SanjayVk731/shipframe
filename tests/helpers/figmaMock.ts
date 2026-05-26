@@ -1,8 +1,9 @@
 import { vi } from 'vitest'
 
 export interface MockAnnotation {
-  label: string
-  categoryId: string
+  label?: string
+  labelMarkdown?: string
+  categoryId?: string
 }
 
 export interface MockNode {
@@ -14,6 +15,9 @@ export interface MockNode {
   visible: boolean
   // Undefined for node types that don't implement AnnotationsMixin (e.g. SECTION).
   annotations?: MockAnnotation[]
+  pluginData: Map<string, string>
+  getPluginData: (k: string) => string
+  setPluginData: (k: string, v: string) => void
 }
 
 export function installFigmaMock() {
@@ -34,6 +38,7 @@ export function installFigmaMock() {
       supportsAnnotations?: boolean
     } = {},
   ): MockNode {
+    const pluginData = new Map<string, string>()
     const node: MockNode = {
       id,
       type,
@@ -42,6 +47,12 @@ export function installFigmaMock() {
       characters: opts.characters,
       visible: opts.visible ?? true,
       annotations: opts.supportsAnnotations === false ? undefined : [],
+      pluginData,
+      getPluginData: (k: string) => pluginData.get(k) ?? '',
+      setPluginData: (k: string, v: string) => {
+        if (v === '') pluginData.delete(k)
+        else pluginData.set(k, v)
+      },
     }
     nodes.set(id, node)
     return node

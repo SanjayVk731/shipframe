@@ -35,16 +35,26 @@ Any other outbound network call is blocked by Figma's plugin runtime.
 
 AI Draft is opt-in and disabled by default. To enable it, the user pastes their own Anthropic, OpenAI, or Azure OpenAI API key in Settings; that key is stored in `clientStorage` (same isolation as the provider PATs). For Azure OpenAI, the user also supplies the full endpoint URL for their own tenant's deployment (e.g. `https://mycorp.openai.azure.com/openai/deployments/<deployment>/chat/completions?api-version=…`); this URL is stored locally and used as the fetch target.
 
-Each time the user clicks "✨ Draft with AI", the plugin sends — and **only** sends — the following from the selected frame to the chosen LLM:
+Each time the user clicks "✨ AI Draft → pin", the plugin sends — and **only** sends — the following from the selected frame to the chosen LLM:
 
+- A **screenshot of the frame** (PNG), downscaled so its longest edge is at most 1024px and base64-encoded in the request body. This lets the model read text baked into icons, vectors, and rasterized images that the layer tree doesn't expose.
 - The frame name (e.g. "Login — error state").
 - The work item type from the chosen tracker board (e.g. "Bug").
 - The labels of any native Figma annotations on the frame (the designer's own words).
 - The contents of visible `TEXT` nodes inside the frame, bounded to 50 nodes, 300 chars per node, and 8000 chars total.
 
-**Not sent:** the frame's rendered image, contents of hidden layers, contents of other frames, any provider PAT, any file metadata beyond what's listed above.
+**Not sent:** contents of hidden layers, contents of other frames, any provider PAT, any file metadata beyond what's listed above.
 
 Disabling AI Draft (Settings → Provider: Off, or clearing the key) atomically removes `ai:provider`, `ai:key`, and `ai:endpoint` from `clientStorage`. No telemetry.
+
+## Inline frame screenshot in tickets
+
+When a ticket is published, the frame screenshot (the same PNG exported for the thumbnail, capped at 5 MB) is uploaded to the user's own tracker and embedded inline in the ticket body:
+
+- **Azure DevOps:** uploaded via the work-item attachments API to the user's org, then referenced with an `<img>` tag in the work item's Description.
+- **Notion** (opt-in provider, not in the published listing — see the architecture note in `README.md`): uploaded via Notion's File Upload API to the user's workspace, then added as an `image` block on the page. Requires re-adding `https://api.notion.com` to the manifest's allowed domains before use.
+
+The image goes only to the same tracker the ticket is created in — no third-party image host is ever contacted. The description HTML is sanitized by DOMPurify, which allows `<img>` with only `src` and `alt` attributes (no event handlers, no `script`/`style`/`iframe`); `javascript:` URLs in image sources are stripped. If the upload fails, the ticket is still created — the provider falls back to a plain description (Azure) or omits the image block (Notion), and the Figma deep link is always present regardless.
 
 ## Token best practices
 

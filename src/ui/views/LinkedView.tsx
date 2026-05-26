@@ -50,7 +50,8 @@ export function LinkedView({
       )}
       {justCreated && pinFailed && (
         <div className="warning-banner" role="alert">
-          Pin couldn't be added to the frame. The ticket was created.
+          Couldn't add the pin marker to the frame. The ticket was created
+          successfully.
         </div>
       )}
       <p>

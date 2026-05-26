@@ -39,18 +39,27 @@ npm run typecheck
 
 - [ ] Azure: Settings with `org|pat` → see project/team/type combos → save.
 - [ ] Azure: Create ticket → work item created with description, thumbnail attached, Figma link in description.
+- [ ] Azure: Create ticket → confirm the frame screenshot is **embedded inline** at the top of the work item Description (an `<img>`, not just an attachment), and renders.
 - [ ] Azure: Bad PAT → SettingsView shows "Your token isn't working".
 - [ ] Multi-select two frames → "Select a single frame or section" empty state.
 - [ ] Non-frame (text node) → empty state.
 - [ ] Frame larger than 2048px → ticket still created (thumbnail downscaled).
 - [ ] **Auto-pin sanity:** Create a ticket on a frame → confirm a numbered annotation appears on the frame and is visible in Figma's Annotations panel; clicking it opens the correct ticket. Re-select the same frame: no duplicate pin. Manually delete the pin and reopen the plugin on the same frame: pin is recreated.
-- [ ] **AI Draft sanity:** With an Anthropic (or OpenAI) key configured in Settings and a frame that has at least one native annotation, click ✨ Draft → confirm the form pre-fills coherently for the chosen WIT (Bug shows reproSteps/expected/actual; User Story shows acceptanceCriteria/outOfScope). Edit and Create the ticket; confirm it lands as expected. Unconfigure the key in Settings → the Draft button disappears.
+- [ ] **AI Draft → pin sanity:** With an Anthropic (or OpenAI) key configured in Settings and a frame that has at least one native annotation or text layer, click ✨ AI Draft → pin → confirm (a) the form pre-fills coherently for the chosen WIT (Bug shows reproSteps/expected/actual; User Story shows acceptanceCriteria/outOfScope), and (b) a rich annotation pin appears on the frame in Figma with the AI-written summary. Unconfigure the key in Settings → the Draft button disappears.
+- [ ] **Vision capture:** Draft a frame whose key text lives inside an icon/vector or a rasterized image (not a `TEXT` layer). Confirm the draft reflects that text — proving the screenshot, not just the layer tree, was read. Repeat across Anthropic, OpenAI, and Azure OpenAI (each must use a vision-capable model/deployment).
+- [ ] **Publish flow:** After AI Draft → pin, the submit button reads **Publish** (not "Create ticket"). Edit the pin text in Figma, then Publish → the **ticket body** matches the form (not the edited pin), and the pin on the canvas keeps its edited text with `— AZURE-<id>` / `— Notion #<short>` appended on a new line. (Form and pin diverge intentionally.)
+- [ ] **Discard draft pin:** After AI Draft → pin, click "Discard draft pin" → the pin disappears from the frame and the form keeps its values; the submit button reverts to "Create ticket".
+- [ ] **Manual create still pins:** Without using AI Draft, fill the form and Create → a short-label pin (`AZURE-<id>` / `Notion · … · #<hex>`) still appears on the frame (regression check).
+- [ ] **SECTION node:** Select a SECTION → the manual Create flow still works, but pin operations are skipped silently (sections don't support annotations) — confirm no error banner.
+- [ ] **Oversized frame (>5 MB PNG):** Confirm the "too large to attach" banner appears, the ticket still creates with the Figma link, and no inline image is embedded.
+- [ ] **Inline upload failure (best-effort check):** If a frame's screenshot upload to the tracker fails, confirm the ticket is still created with a plain description + Figma link, and the LinkedView shows the "thumbnail couldn't be attached" warning (the provider reports `inlineImageAttached: false`).
 - [ ] **AI Draft — Azure OpenAI:** In Settings pick Azure OpenAI, paste a deployment endpoint URL (`https://<tenant>.openai.azure.com/openai/deployments/<deployment>/chat/completions?api-version=2024-10-21`) and the api-key → save. Confirm validation warnings appear for non-Azure hosts and for endpoints missing `?api-version=…`. Click ✨ Draft on an annotated frame → form pre-fills. Switch provider back to Off → `ai:endpoint` is cleared alongside provider+key.
 
 ### Notion (not in published listing, run before any re-list)
 
 - [ ] Notion: Settings → enter PAT → see databases → pick → save.
 - [ ] Notion: Create ticket → page appears in Notion with Figma link callout.
+- [ ] Notion: Create ticket → confirm the frame screenshot appears as an **image block** on the page (uploaded via Notion's File Upload API, not a broken/external link).
 - [ ] Notion: Re-select the same frame → LinkedView with Open link.
 - [ ] Notion: Unlink → frame goes back to CreateView; Notion page still exists.
 - [ ] Notion integration without any shared databases → help text in Settings.

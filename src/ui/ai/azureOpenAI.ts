@@ -1,12 +1,15 @@
 // src/ui/ai/azureOpenAI.ts
 import { tryRequest } from '../../providers/tryRequest'
 import type { Result } from '../../providers/types'
+import { bytesToBase64 } from './downscale'
 
 export interface AzureOpenAiCallInput {
   apiKey: string
   endpoint: string
   systemPrompt: string
   userPrompt: string
+  /** null sends a text-only request (the "Include image" toggle was off). */
+  imageBytes: Uint8Array | null
 }
 
 const MAX_TOKENS = 2048
@@ -14,6 +17,17 @@ const MAX_TOKENS = 2048
 export async function callAzureOpenAI(
   input: AzureOpenAiCallInput,
 ): Promise<Result<string>> {
+  const userContent = input.imageBytes
+    ? [
+        { type: 'text', text: input.userPrompt },
+        {
+          type: 'image_url',
+          image_url: {
+            url: `data:image/png;base64,${bytesToBase64(input.imageBytes)}`,
+          },
+        },
+      ]
+    : input.userPrompt
   return tryRequest<string>(
     () =>
       fetch(input.endpoint, {
@@ -27,7 +41,7 @@ export async function callAzureOpenAI(
           response_format: { type: 'json_object' },
           messages: [
             { role: 'system', content: input.systemPrompt },
-            { role: 'user', content: input.userPrompt },
+            { role: 'user', content: userContent },
           ],
         }),
       }),

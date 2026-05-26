@@ -5,7 +5,7 @@ import { CreateView } from './views/CreateView'
 import { LinkedView } from './views/LinkedView'
 import { ViewHeader } from './components/ViewHeader'
 import { getProvider } from '../providers/registry'
-import { getAiConfig, setAiConfig, clearAiConfig } from '../storage/aiConfig'
+import type { AiConfig } from '../storage/aiConfig'
 import type {
   FileConfig,
   ProviderId,
@@ -79,7 +79,8 @@ export function App() {
         notion: notionPat.type === 'pat' ? notionPat.pat : null,
         azure: azurePat.type === 'pat' ? azurePat.pat : null,
       })
-      const aiCfg = await getAiConfig()
+      const aiRes = await sandbox.request({ type: 'get-ai-config' })
+      const aiCfg = aiRes.type === 'ai-config' ? aiRes.config : null
       if (aiCfg) {
         setAiProvider(aiCfg.provider)
         setAiKey(aiCfg.key)
@@ -172,24 +173,26 @@ export function App() {
       setAiKey(next.key)
       setAiEndpoint(next.endpoint ?? '')
       if (next.provider === 'off' || next.key === '') {
-        await clearAiConfig()
+        await sandbox.request({ type: 'clear-ai-config' })
         return
       }
       if (next.provider === 'azure-openai') {
         if (!next.endpoint) {
-          await clearAiConfig()
+          await sandbox.request({ type: 'clear-ai-config' })
           return
         }
-        await setAiConfig({
+        const config: AiConfig = {
           provider: next.provider,
           key: next.key,
           endpoint: next.endpoint,
-        })
+        }
+        await sandbox.request({ type: 'set-ai-config', config })
         return
       }
-      await setAiConfig({ provider: next.provider, key: next.key })
+      const config: AiConfig = { provider: next.provider, key: next.key }
+      await sandbox.request({ type: 'set-ai-config', config })
     },
-    [],
+    [sandbox],
   )
 
   const onUnlink = useCallback(async () => {
@@ -221,13 +224,25 @@ export function App() {
   const onCreate = useCallback(
     async (input: TicketInput): Promise<Result<unknown>> => {
       if (!fileConfig) return { ok: false, reason: 'unknown', status: 0 }
+      const hadDraftPin =
+        sandbox.selection.kind === 'single' && sandbox.selection.hasDraftPin
       const pat = pats[fileConfig.providerId]
       if (!pat) return { ok: false, reason: 'auth_failed', status: 401 }
       const provider = getProvider(fileConfig.providerId)
-      const created = await provider.createTicket(pat, fileConfig.boardId, input)
+      // When we have a usable thumbnail, embed it inline in the ticket body and
+      // skip the separate attachment upload to avoid double-attaching (Azure).
+      const inlined = !!(thumb && !thumbOversized)
+      const inputWithImage: TicketInput =
+        inlined && thumb
+          ? { ...input, inlineImage: { bytes: thumb, filename: 'thumbnail.png' } }
+          : input
+      const created = await provider.createTicket(pat, fileConfig.boardId, inputWithImage)
       if (!created.ok) return created
-      let attachmentOk = true
-      if (sandbox.selection.kind === 'single' && thumb) {
+      // When the image was inlined, the provider reports whether the embed
+      // succeeded. A silent inline-upload failure still surfaces the
+      // "couldn't attach" warning (the ticket itself is created either way).
+      let attachmentOk = created.value.inlineImageAttached !== false
+      if (!inlined && sandbox.selection.kind === 'single' && thumb) {
         const up = await provider.uploadAttachment(
           pat,
           { id: created.value.id, boardId: fileConfig.boardId },
@@ -259,13 +274,20 @@ export function App() {
         // — a failure only sets pinFailedId so LinkedView can warn the user.
         // `unsupported-node` (e.g. SECTION) is expected, not a failure — don't
         // warn for it.
-        const syncRes = await sandbox.request({
-          type: 'sync-annotation',
-          nodeId: sandbox.selection.nodeId,
-          providerId: fileConfig.providerId,
-          ticketId: link.id,
-          title: input.title,
-        })
+        const syncRes = hadDraftPin
+          ? await sandbox.request({
+              type: 'append-ticket-id-to-annotation',
+              nodeId: sandbox.selection.nodeId,
+              providerId: fileConfig.providerId,
+              ticketId: link.id,
+            })
+          : await sandbox.request({
+              type: 'sync-annotation',
+              nodeId: sandbox.selection.nodeId,
+              providerId: fileConfig.providerId,
+              ticketId: link.id,
+              title: input.title,
+            })
         const pinFailed =
           syncRes.type === 'error' && syncRes.reason !== 'unsupported-node'
         // Mark this link as "just created" BEFORE refreshing selection so the
@@ -279,7 +301,7 @@ export function App() {
       }
       return { ok: true, value: created.value, status: created.status }
     },
-    [fileConfig, pats, sandbox, thumb],
+    [fileConfig, pats, sandbox, thumb, thumbOversized],
   )
 
   const testAuth = useMemo(
@@ -396,6 +418,26 @@ export function App() {
           return undefined
         }
         return r.context
+      }}
+      hasDraftPin={sandbox.selection.kind === 'single' ? sandbox.selection.hasDraftPin : false}
+      writeAiAnnotation={async (markdown) => {
+        if (sandbox.selection.kind !== 'single') return { type: 'error', reason: 'no-selection' }
+        const r = await sandbox.request({
+          type: 'write-ai-annotation',
+          nodeId: sandbox.selection.nodeId,
+          markdown,
+        })
+        await sandbox.request({ type: 'get-selection-state' })
+        return { type: r.type, reason: r.type === 'error' ? r.reason : undefined }
+      }}
+      clearAiAnnotation={async () => {
+        if (sandbox.selection.kind !== 'single') return { type: 'error', reason: 'no-selection' }
+        const r = await sandbox.request({
+          type: 'clear-ai-annotation',
+          nodeId: sandbox.selection.nodeId,
+        })
+        await sandbox.request({ type: 'get-selection-state' })
+        return { type: r.type, reason: r.type === 'error' ? r.reason : undefined }
       }}
     />
   )
