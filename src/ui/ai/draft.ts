@@ -13,7 +13,7 @@ async function callOnce(
   ai: AiConfig,
   systemPrompt: string,
   userPrompt: string,
-  imageBytes: Uint8Array,
+  imageBytes: Uint8Array | null,
 ): Promise<Result<string>> {
   if (ai.provider === 'anthropic') {
     return callAnthropic({ apiKey: ai.key, systemPrompt, userPrompt, imageBytes })
@@ -45,10 +45,11 @@ function synthesizePin(value: DraftOutput): string | undefined {
 export async function draftFromContext(
   ctx: FrameContext,
   ai: AiConfig,
-  imageBytes: Uint8Array,
+  /** null when the "Include image" toggle is off — sends a text-only draft. */
+  imageBytes: Uint8Array | null,
 ): Promise<Result<DraftOutput>> {
-  const downscaled = await downscaleForVision(imageBytes)
-  const system = buildSystemPrompt()
+  const downscaled = imageBytes ? await downscaleForVision(imageBytes) : null
+  const system = buildSystemPrompt(downscaled !== null)
   const user = buildUserPrompt(ctx)
 
   const first = await callOnce(ai, system, user, downscaled)

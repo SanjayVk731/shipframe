@@ -320,6 +320,31 @@ describe('draftFromContext image + pin fallback', () => {
     expect(body.messages[0].content[0].type).toBe('image')
   })
 
+  it('sends no image block when imageBytes is null (Include image off)', async () => {
+    const fetchFn = installFetch([
+      {
+        matches: (url) => url.includes('api.anthropic.com'),
+        response: () =>
+          jsonResponse(200, {
+            content: [{ type: 'text', text: JSON.stringify({ title: 'T', main: 'M' }) }],
+          }),
+      },
+    ])
+    const r = await draftFromContext(
+      { frameName: 'F', workItemType: 'Bug', annotations: ['note'], textLayers: ['Hello'] },
+      { provider: 'anthropic', key: 'k' },
+      null,
+    )
+    expect(r.ok).toBe(true)
+    const body = JSON.parse(fetchFn.mock.calls[0]![1]!.body as string) as {
+      messages: Array<{ content: Array<{ type: string }> }>
+      system: string
+    }
+    expect(body.messages[0]!.content.some((c) => c.type === 'image')).toBe(false)
+    // System prompt must not promise a screenshot when none is sent.
+    expect(body.system).not.toContain('You will receive a screenshot')
+  })
+
   it('synthesizes pinMarkdown when the LLM omits it', async () => {
     installFetch([
       {

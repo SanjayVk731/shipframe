@@ -27,9 +27,16 @@ describe('buildSystemPrompt', () => {
     expect(buildSystemPrompt()).toBe(buildSystemPrompt())
   })
 
-  it('includes the screenshot-is-primary instruction', () => {
+  it('includes the screenshot-is-primary instruction by default', () => {
     const s = buildSystemPrompt()
     expect(s.toLowerCase()).toContain('screenshot')
+    expect(s).toContain('You will receive a screenshot')
+  })
+
+  it('states no screenshot will be sent when includeImage is false', () => {
+    const s = buildSystemPrompt(false)
+    expect(s).toContain('You will NOT receive a screenshot')
+    expect(s).not.toContain('You will receive a screenshot')
   })
 
   it('mentions pinMarkdown and its 280-char cap', () => {

@@ -20,6 +20,7 @@ beforeEach(() => {
 
 function renderView(
   props: {
+    thumbnail?: Uint8Array | null
     thumbnailOversized?: boolean
     workItemType?: string
     hasDraftPin?: boolean
@@ -34,7 +35,7 @@ function renderView(
       boardId="db-1"
       boardLabel="Bugs"
       nodeName="Hero frame"
-      thumbnail={null}
+      thumbnail={props.thumbnail ?? null}
       thumbnailOversized={props.thumbnailOversized}
       workItemType={props.workItemType}
       figmaDeepLink="https://figma.com/file/abc?node-id=1%3A2"
@@ -267,5 +268,43 @@ describe('CreateView', () => {
       screen.getByRole('button', { name: /discard draft pin/i }),
     )
     await waitFor(() => expect(clearAiAnnotation).toHaveBeenCalled())
+  })
+
+  it('renders an enabled "Include image" toggle (checked) when a thumbnail is available', async () => {
+    getFieldSchema.mockResolvedValue({ ok: true, status: 200, value: schema })
+    renderView({
+      thumbnail: new Uint8Array([1, 2, 3]),
+      aiConfig: { provider: 'anthropic', key: 'sk-test' },
+    })
+    await waitFor(() => screen.getByLabelText(/title/i))
+    const toggle = screen.getByRole('checkbox', { name: /include image/i }) as HTMLInputElement
+    expect(toggle).toBeInTheDocument()
+    expect(toggle.checked).toBe(true)
+    expect(toggle).not.toBeDisabled()
+  })
+
+  it('disables the "Include image" toggle when no thumbnail is available', async () => {
+    getFieldSchema.mockResolvedValue({ ok: true, status: 200, value: schema })
+    renderView({
+      thumbnail: null,
+      aiConfig: { provider: 'anthropic', key: 'sk-test' },
+    })
+    await waitFor(() => screen.getByLabelText(/title/i))
+    const toggle = screen.getByRole('checkbox', { name: /include image/i }) as HTMLInputElement
+    expect(toggle).toBeDisabled()
+    expect(toggle.checked).toBe(false)
+  })
+
+  it('disables the "Include image" toggle when the thumbnail is oversized', async () => {
+    getFieldSchema.mockResolvedValue({ ok: true, status: 200, value: schema })
+    renderView({
+      thumbnail: new Uint8Array([1, 2, 3]),
+      thumbnailOversized: true,
+      aiConfig: { provider: 'anthropic', key: 'sk-test' },
+    })
+    await waitFor(() => screen.getByLabelText(/title/i))
+    const toggle = screen.getByRole('checkbox', { name: /include image/i }) as HTMLInputElement
+    expect(toggle).toBeDisabled()
+    expect(toggle.checked).toBe(false)
   })
 })

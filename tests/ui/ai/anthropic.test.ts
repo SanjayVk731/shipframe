@@ -42,4 +42,28 @@ describe('callAnthropic vision payload', () => {
     const text = content[1] as { type: string; text: string }
     expect(text).toEqual({ type: 'text', text: 'usr' })
   })
+
+  it('sends a text-only content array when imageBytes is null', async () => {
+    const fetchFn = installFetch([
+      {
+        matches: (url) => url.includes('api.anthropic.com'),
+        response: () =>
+          jsonResponse(200, { content: [{ type: 'text', text: '{}' }] }),
+      },
+    ])
+
+    await callAnthropic({
+      apiKey: 'k',
+      systemPrompt: 'sys',
+      userPrompt: 'usr',
+      imageBytes: null,
+    })
+
+    const body = JSON.parse(fetchFn.mock.calls[0]![1]!.body as string) as {
+      messages: Array<{ role: string; content: Array<{ type: string }> }>
+    }
+    const content = body.messages[0]!.content
+    expect(content).toEqual([{ type: 'text', text: 'usr' }])
+    expect(content.some((c) => c.type === 'image')).toBe(false)
+  })
 })

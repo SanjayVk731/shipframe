@@ -43,4 +43,27 @@ describe('callOpenAI vision payload', () => {
       | undefined
     expect(text).toEqual({ type: 'text', text: 'usr' })
   })
+
+  it('sends a plain string user message when imageBytes is null', async () => {
+    const fetchFn = installFetch([
+      {
+        matches: (url) => url.includes('api.openai.com'),
+        response: () =>
+          jsonResponse(200, { choices: [{ message: { content: '{}' } }] }),
+      },
+    ])
+
+    await callOpenAI({
+      apiKey: 'k',
+      systemPrompt: 'sys',
+      userPrompt: 'usr',
+      imageBytes: null,
+    })
+
+    const body = JSON.parse(fetchFn.mock.calls[0]![1]!.body as string) as {
+      messages: Array<{ role: string; content: unknown }>
+    }
+    const userMsg = body.messages.find((m) => m.role === 'user')!
+    expect(userMsg.content).toBe('usr')
+  })
 })

@@ -1,10 +1,13 @@
 import type { FrameContext } from '../../shared/types'
 import { DRAFT_KEYS } from './types'
 
-export function buildSystemPrompt(): string {
+export function buildSystemPrompt(includeImage = true): string {
+  const imageLine = includeImage
+    ? 'You will receive a screenshot of the frame. Use it as the primary signal for what is on screen; the text-layer list is incomplete (icons, vectors, and rasterized text will not appear there).'
+    : 'You will NOT receive a screenshot — work only from the frame name, annotations, and text layers below.'
   return [
     'You draft software tickets from a Figma frame.',
-    'You will receive a screenshot of the frame. Use it as the primary signal for what is on screen; the text-layer list is incomplete (icons, vectors, and rasterized text will not appear there).',
+    imageLine,
     'Return ONLY a JSON object — no prose, no markdown fences.',
     `Allowed keys (omit any that do not apply): ${DRAFT_KEYS.join(', ')}.`,
     'Each value is plain text (markdown allowed for "main"). Lists in',

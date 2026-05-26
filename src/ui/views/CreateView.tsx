@@ -143,6 +143,11 @@ export function CreateView({
   const [drafting, setDrafting] = useState(false)
   const [draftError, setDraftError] = useState<string | null>(null)
   const [pinNote, setPinNote] = useState<string | null>(null)
+  const [includeImage, setIncludeImage] = useState(true)
+
+  // No usable screenshot → can't send one. Vision is also pointless without it.
+  const imageAvailable = thumbnail !== null && !thumbnailOversized
+  const willSendImage = includeImage && imageAvailable
 
   const sectionSet = sectionSetFor(workItemType)
 
@@ -186,7 +191,11 @@ export function CreateView({
       // anyway. We keep the dynamic import for clean separation: AI code only
       // runs in the iframe when this handler is actually invoked.
       const { draftFromContext } = await import('../ai/draft')
-      const drafted = await draftFromContext(ctx, aiConfig, thumbnail ?? new Uint8Array())
+      const drafted = await draftFromContext(
+        ctx,
+        aiConfig,
+        willSendImage ? thumbnail : null,
+      )
       if (!drafted.ok) {
         setDraftError(draftReasonToMessage(drafted.reason))
         return
@@ -279,6 +288,29 @@ export function CreateView({
             >
               Discard draft pin
             </Button>
+          )}
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              marginTop: 8,
+              fontSize: 12,
+              opacity: imageAvailable ? 0.85 : 0.5,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={willSendImage}
+              disabled={!imageAvailable || drafting}
+              onChange={(e) => setIncludeImage(e.target.checked)}
+            />
+            Include image (send a screenshot of the frame to the AI)
+          </label>
+          {!imageAvailable && (
+            <p style={{ marginTop: 4, marginBottom: 0, opacity: 0.6, fontSize: 11 }}>
+              No screenshot available for this selection — the draft will use text only.
+            </p>
           )}
           {draftError && (
             <p style={{ marginTop: 6, marginBottom: 0, opacity: 0.85, fontSize: 12 }}>
