@@ -32,6 +32,20 @@ export type UiToSandbox =
     }
   | { type: 'clear-annotation'; nodeId: string; requestId: string }
   | {
+      type: 'write-ai-annotation'
+      nodeId: string
+      markdown: string
+      requestId: string
+    }
+  | {
+      type: 'append-ticket-id-to-annotation'
+      nodeId: string
+      providerId: ProviderId
+      ticketId: string
+      requestId: string
+    }
+  | { type: 'clear-ai-annotation'; nodeId: string; requestId: string }
+  | {
       type: 'get-frame-context'
       nodeId: string
       workItemType: string | undefined
@@ -68,6 +82,9 @@ const UI_TYPES = new Set<UiToSandbox['type']>([
   'open-external',
   'sync-annotation',
   'clear-annotation',
+  'write-ai-annotation',
+  'append-ticket-id-to-annotation',
+  'clear-ai-annotation',
   'get-frame-context',
 ])
 

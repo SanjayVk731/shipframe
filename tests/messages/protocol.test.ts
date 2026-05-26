@@ -43,7 +43,45 @@ describe('protocol guards', () => {
       | 'sync-annotation'
       | 'clear-annotation'
       | 'get-frame-context'
+      | 'write-ai-annotation'
+      | 'append-ticket-id-to-annotation'
+      | 'clear-ai-annotation'
     >()
+  })
+})
+
+describe('isUiToSandbox new types', () => {
+  it('accepts write-ai-annotation', () => {
+    expect(
+      isUiToSandbox({
+        type: 'write-ai-annotation',
+        nodeId: '1:1',
+        markdown: 'body',
+        requestId: 'r1',
+      }),
+    ).toBe(true)
+  })
+
+  it('accepts append-ticket-id-to-annotation', () => {
+    expect(
+      isUiToSandbox({
+        type: 'append-ticket-id-to-annotation',
+        nodeId: '1:1',
+        providerId: 'azure',
+        ticketId: '42',
+        requestId: 'r1',
+      }),
+    ).toBe(true)
+  })
+
+  it('accepts clear-ai-annotation', () => {
+    expect(
+      isUiToSandbox({
+        type: 'clear-ai-annotation',
+        nodeId: '1:1',
+        requestId: 'r1',
+      }),
+    ).toBe(true)
   })
 })
 
