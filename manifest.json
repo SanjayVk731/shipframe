@@ -14,6 +14,6 @@
       "https://api.openai.com",
       "https://*.openai.azure.com"
     ],
-    "reasoning": "Creates Azure DevOps work items from a selected frame, attaching the frame thumbnail and a deep link back to the node. Optional AI Draft (off by default) sends the frame name, native Figma annotations, and visible text-layer copy — no image content — to the user's chosen LLM provider (Anthropic, OpenAI, or Azure OpenAI on the user's own tenant) using their own API key stored locally. No third-party servers, no telemetry."
+    "reasoning": "Creates Azure DevOps work items from a selected frame, embedding a screenshot of the frame and a deep link back to the node in the work item. Optional AI Draft (off by default) sends the frame name, native Figma annotations, visible text-layer copy, and — when the user leaves 'Include image' enabled — a downscaled screenshot of the frame to the user's chosen LLM provider (Anthropic, OpenAI, or Azure OpenAI on the user's own tenant) using their own API key stored locally. The screenshot is also uploaded to the user's own Azure DevOps org for the inline embed. No third-party servers, no telemetry."
   }
 }
