@@ -306,6 +306,16 @@ describe('appendTicketIdToAnnotation', () => {
       { labelMarkdown: 'AI body\n— AZURE-9' },
     ])
   })
+  it('is idempotent — a second call does not double-append the suffix', async () => {
+    const node = mock.makeNode('1:1', 'FRAME', 'Frame')
+    node.annotations = [{ labelMarkdown: 'AI body' }]
+    node.setPluginData('aiDraftPin', '1')
+    await appendTicketIdToAnnotation('1:1', 'azure', '42')
+    // Re-publish / retry: aiDraftPin is now '' and the body already ends with
+    // the suffix. The entry is still recognized as ours via its tail.
+    await appendTicketIdToAnnotation('1:1', 'azure', '42')
+    expect(node.annotations).toEqual([{ labelMarkdown: 'AI body\n— AZURE-42' }])
+  })
 })
 
 describe('clearAiAnnotation', () => {

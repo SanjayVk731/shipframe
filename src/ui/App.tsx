@@ -229,35 +229,19 @@ export function App() {
       const pat = pats[fileConfig.providerId]
       if (!pat) return { ok: false, reason: 'auth_failed', status: 401 }
       const provider = getProvider(fileConfig.providerId)
-      // When we have a usable thumbnail, embed it inline in the ticket body and
-      // skip the separate attachment upload to avoid double-attaching (Azure).
-      const inlined = !!(thumb && !thumbOversized)
-      const inputWithImage: TicketInput =
-        inlined && thumb
-          ? { ...input, inlineImage: { bytes: thumb, filename: 'thumbnail.png' } }
-          : input
+      // A usable thumbnail (present and not oversized) is embedded inline in the
+      // ticket body. `exportThumbnail` returns bytes only when not oversized, so
+      // `thumb` truthy already implies a usable thumbnail — there is no separate
+      // attachment-upload path.
+      const inputWithImage: TicketInput = thumb
+        ? { ...input, inlineImage: { bytes: thumb, filename: 'thumbnail.png' } }
+        : input
       const created = await provider.createTicket(pat, fileConfig.boardId, inputWithImage)
       if (!created.ok) return created
-      // When the image was inlined, the provider reports whether the embed
-      // succeeded. A silent inline-upload failure still surfaces the
-      // "couldn't attach" warning (the ticket itself is created either way).
-      let attachmentOk = created.value.inlineImageAttached !== false
-      if (!inlined && sandbox.selection.kind === 'single' && thumb) {
-        const up = await provider.uploadAttachment(
-          pat,
-          { id: created.value.id, boardId: fileConfig.boardId },
-          thumb,
-          'thumbnail.png',
-        )
-        if (!up.ok) {
-          attachmentOk = false
-          console.warn(
-            'figma-tickets: thumbnail upload failed',
-            up.reason,
-            up.status,
-          )
-        }
-      }
+      // The provider reports whether the inline embed succeeded. A silent
+      // inline-upload failure still surfaces the "couldn't attach" warning (the
+      // ticket itself is created either way).
+      const attachmentOk = created.value.inlineImageAttached !== false
       const link: TicketLink = {
         id: created.value.id,
         url: created.value.url,
@@ -301,7 +285,7 @@ export function App() {
       }
       return { ok: true, value: created.value, status: created.status }
     },
-    [fileConfig, pats, sandbox, thumb, thumbOversized],
+    [fileConfig, pats, sandbox, thumb],
   )
 
   const testAuth = useMemo(

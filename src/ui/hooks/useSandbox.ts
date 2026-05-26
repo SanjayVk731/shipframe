@@ -31,18 +31,27 @@ export function useSandbox(): UseSandboxApi {
       const raw = (event.data as { pluginMessage?: unknown })?.pluginMessage
       if (!isSandboxToUi(raw)) return
       const msg = raw as SandboxToUi
-      // Both pushed `selection-changed` events and explicit `selection-state`
-      // responses carry the latest selection — keep local state in sync with both.
-      if (msg.type === 'selection-changed' || msg.type === 'selection-state') {
+
+      // `selection-changed` is the ONLY legitimately-unsolicited message (a push
+      // event with no requestId). Everything else is a reply and must correlate
+      // to a request we actually made — otherwise we drop it. The Figma plugin
+      // iframe runs at origin `null`, so requestId correlation (not event.origin)
+      // is the practical guard against a spoofed parent forging replies such as
+      // `pat`/`ai-config` (credential injection) or a `selection-state` driving
+      // the UI into an attacker-chosen view.
+      if (msg.type === 'selection-changed') {
         setSelection(msg.state)
+        return
       }
-      if ('requestId' in msg) {
-        const resolve = pending.current.get(msg.requestId)
-        if (resolve) {
-          pending.current.delete(msg.requestId)
-          resolve(msg)
-        }
-      }
+
+      if (!('requestId' in msg)) return
+      const resolve = pending.current.get(msg.requestId)
+      if (!resolve) return
+      pending.current.delete(msg.requestId)
+
+      // A solicited `selection-state` reply also refreshes local selection.
+      if (msg.type === 'selection-state') setSelection(msg.state)
+      resolve(msg)
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)

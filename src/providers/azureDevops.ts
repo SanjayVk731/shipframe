@@ -1,6 +1,6 @@
 import type { TicketProvider } from './types'
 import { tryRequest } from './tryRequest'
-import { sanitizeHtml } from '../ui/composeDescription'
+import { sanitizeHtml } from '../ui/sanitize'
 
 const API_VERSION = 'api-version=7.1'
 
