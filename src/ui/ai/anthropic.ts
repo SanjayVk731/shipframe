@@ -1,11 +1,13 @@
 // src/ui/ai/anthropic.ts
 import { tryRequest } from '../../providers/tryRequest'
 import type { Result } from '../../providers/types'
+import { bytesToBase64 } from './downscale'
 
 export interface AnthropicCallInput {
   apiKey: string
   systemPrompt: string
   userPrompt: string
+  imageBytes: Uint8Array
 }
 
 const ENDPOINT = 'https://api.anthropic.com/v1/messages'
@@ -29,7 +31,22 @@ export async function callAnthropic(
           model: MODEL,
           max_tokens: MAX_TOKENS,
           system: input.systemPrompt,
-          messages: [{ role: 'user', content: input.userPrompt }],
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'image',
+                  source: {
+                    type: 'base64',
+                    media_type: 'image/png',
+                    data: bytesToBase64(input.imageBytes),
+                  },
+                },
+                { type: 'text', text: input.userPrompt },
+              ],
+            },
+          ],
         }),
       }),
     async (res) => {

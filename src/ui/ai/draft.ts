@@ -14,18 +14,32 @@ async function callOnce(
   userPrompt: string,
 ): Promise<Result<string>> {
   if (ai.provider === 'anthropic') {
-    return callAnthropic({ apiKey: ai.key, systemPrompt, userPrompt })
+    // TODO(task-8): pass real downscaled image bytes
+    return callAnthropic({
+      apiKey: ai.key,
+      systemPrompt,
+      userPrompt,
+      imageBytes: new Uint8Array(),
+    })
   }
   if (ai.provider === 'azure-openai') {
     if (!ai.endpoint) return { ok: false, reason: 'auth_failed', status: 0 }
+    // TODO(task-8): pass real downscaled image bytes
     return callAzureOpenAI({
       apiKey: ai.key,
       endpoint: ai.endpoint,
       systemPrompt,
       userPrompt,
+      imageBytes: new Uint8Array(),
     })
   }
-  return callOpenAI({ apiKey: ai.key, systemPrompt, userPrompt })
+  // TODO(task-8): pass real downscaled image bytes
+  return callOpenAI({
+    apiKey: ai.key,
+    systemPrompt,
+    userPrompt,
+    imageBytes: new Uint8Array(),
+  })
 }
 
 export async function draftFromContext(

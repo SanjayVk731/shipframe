@@ -1,11 +1,13 @@
 // src/ui/ai/openai.ts
 import { tryRequest } from '../../providers/tryRequest'
 import type { Result } from '../../providers/types'
+import { bytesToBase64 } from './downscale'
 
 export interface OpenAiCallInput {
   apiKey: string
   systemPrompt: string
   userPrompt: string
+  imageBytes: Uint8Array
 }
 
 const ENDPOINT = 'https://api.openai.com/v1/chat/completions'
@@ -29,7 +31,18 @@ export async function callOpenAI(
           response_format: { type: 'json_object' },
           messages: [
             { role: 'system', content: input.systemPrompt },
-            { role: 'user', content: input.userPrompt },
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: input.userPrompt },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: `data:image/png;base64,${bytesToBase64(input.imageBytes)}`,
+                  },
+                },
+              ],
+            },
           ],
         }),
       }),
