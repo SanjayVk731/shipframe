@@ -309,6 +309,14 @@ describe('composeDescription <img> handling', () => {
     expect(r.description).not.toContain('<style')
     expect(r.description).not.toContain('<iframe')
   })
+
+  it('strips a javascript: URL from img src', () => {
+    const r = composeDescription({
+      main: '<img src="javascript:alert(1)" alt="x"/>',
+    })
+    expect(r.description).not.toContain('javascript:')
+    expect(r.description).not.toContain('alert(1)')
+  })
 })
 
 describe('composeDescription — overall ordering', () => {
