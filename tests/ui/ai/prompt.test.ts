@@ -3,6 +3,7 @@ import {
   buildSystemPrompt,
   buildUserPrompt,
 } from '../../../src/ui/ai/prompt'
+import { DRAFT_KEYS } from '../../../src/ui/ai/types'
 import type { FrameContext } from '../../../src/shared/types'
 
 describe('buildSystemPrompt', () => {
@@ -24,6 +25,22 @@ describe('buildSystemPrompt', () => {
 
   it('is deterministic (no timestamps/randomness)', () => {
     expect(buildSystemPrompt()).toBe(buildSystemPrompt())
+  })
+
+  it('includes the screenshot-is-primary instruction', () => {
+    const s = buildSystemPrompt()
+    expect(s.toLowerCase()).toContain('screenshot')
+  })
+
+  it('mentions pinMarkdown and its 280-char cap', () => {
+    const s = buildSystemPrompt()
+    expect(s).toContain('pinMarkdown')
+    expect(s).toMatch(/280/)
+  })
+
+  it('lists all DRAFT_KEYS', () => {
+    const s = buildSystemPrompt()
+    for (const k of DRAFT_KEYS) expect(s).toContain(k)
   })
 })
 
