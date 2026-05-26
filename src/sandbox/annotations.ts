@@ -16,7 +16,7 @@ export function isOursTail(label: string): boolean {
   return OURS_TAIL_RE.test(label)
 }
 
-// Pluginid key marking a frame that currently holds an un-published AI draft
+// PluginData key marking a frame that currently holds an un-published AI draft
 // pin. selection.ts imports this to populate SelectionState.hasDraftPin.
 export const DRAFT_PIN_KEY = 'aiDraftPin'
 
