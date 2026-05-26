@@ -250,7 +250,11 @@ export const notionProvider: TicketProvider = {
       })
     }
 
+    // undefined when no inline image was requested; true/false to report whether
+    // the upload succeeded so the UI can warn on silent drop.
+    let inlineImageAttached: boolean | undefined
     if (ticket.inlineImage) {
+      inlineImageAttached = false
       const up = await uploadFileForBlock(
         pat,
         ticket.inlineImage.bytes,
@@ -265,6 +269,7 @@ export const notionProvider: TicketProvider = {
             file_upload: { id: up.uploadId },
           },
         })
+        inlineImageAttached = true
       }
     }
 
@@ -280,7 +285,11 @@ export const notionProvider: TicketProvider = {
       }),
     )
     if (!r.ok) return r
-    return { ok: true, status: r.status, value: { id: r.value.id, url: r.value.url } }
+    return {
+      ok: true,
+      status: r.status,
+      value: { id: r.value.id, url: r.value.url, inlineImageAttached },
+    }
   },
 
   async uploadAttachment() {

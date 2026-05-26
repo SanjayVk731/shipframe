@@ -351,6 +351,7 @@ describe('notionProvider.createTicket with inlineImage', () => {
     const pagesCall = fetchFn.mock.calls.find((c) => String(c[0]).endsWith('/v1/pages'))!
     const body = JSON.parse(pagesCall[1]!.body as string) as { children: Array<{ type: string }> }
     expect(body.children.some((c) => c.type === 'image')).toBe(true)
+    if (r.ok) expect(r.value.inlineImageAttached).toBe(true)
   })
 
   it('still creates the page when the file upload fails', async () => {
@@ -368,6 +369,7 @@ describe('notionProvider.createTicket with inlineImage', () => {
     const pagesCall = fetchFn.mock.calls.find((c) => String(c[0]).endsWith('/v1/pages'))!
     const body = JSON.parse(pagesCall[1]!.body as string) as { children: Array<{ type: string }> }
     expect(body.children.some((c) => c.type === 'image')).toBe(false)
+    if (r.ok) expect(r.value.inlineImageAttached).toBe(false)
   })
 })
 

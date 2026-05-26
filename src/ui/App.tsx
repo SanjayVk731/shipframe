@@ -235,7 +235,10 @@ export function App() {
           : input
       const created = await provider.createTicket(pat, fileConfig.boardId, inputWithImage)
       if (!created.ok) return created
-      let attachmentOk = true
+      // When the image was inlined, the provider reports whether the embed
+      // succeeded. A silent inline-upload failure still surfaces the
+      // "couldn't attach" warning (the ticket itself is created either way).
+      let attachmentOk = created.value.inlineImageAttached !== false
       if (!inlined && sandbox.selection.kind === 'single' && thumb) {
         const up = await provider.uploadAttachment(
           pat,

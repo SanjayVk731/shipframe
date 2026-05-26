@@ -362,6 +362,7 @@ describe('azureProvider.createTicket with inlineImage', () => {
     expect(String(desc.value)).toContain('<img')
     expect(String(desc.value)).toContain('https://dev.azure.com/o/_apis/wit/attachments/abc')
     expect(String(desc.value)).toContain('<p>body</p>')
+    if (r.ok) expect(r.value.inlineImageAttached).toBe(true)
   })
 
   it('runs the assembled description through DOMPurify (strips event handlers from pre-sanitized body)', async () => {
@@ -426,6 +427,7 @@ describe('azureProvider.createTicket with inlineImage', () => {
     const desc = ops.find((o) => o.path === '/fields/System.Description')!
     expect(String(desc.value)).toContain('<p>body</p>')
     expect(String(desc.value)).not.toContain('<img')
+    if (r.ok) expect(r.value.inlineImageAttached).toBe(false)
   })
 })
 

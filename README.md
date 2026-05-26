@@ -52,7 +52,7 @@ npm run typecheck
 - [ ] **Manual create still pins:** Without using AI Draft, fill the form and Create → a short-label pin (`AZURE-<id>` / `Notion · … · #<hex>`) still appears on the frame (regression check).
 - [ ] **SECTION node:** Select a SECTION → the manual Create flow still works, but pin operations are skipped silently (sections don't support annotations) — confirm no error banner.
 - [ ] **Oversized frame (>5 MB PNG):** Confirm the "too large to attach" banner appears, the ticket still creates with the Figma link, and no inline image is embedded.
-- [ ] **Inline upload failure (best-effort check):** If a frame's screenshot upload to the tracker fails, confirm the ticket is still created with a plain description + Figma link (the image is silently dropped — no inline image, but no spurious "thumbnail couldn't be attached" warning on the inlined path).
+- [ ] **Inline upload failure (best-effort check):** If a frame's screenshot upload to the tracker fails, confirm the ticket is still created with a plain description + Figma link, and the LinkedView shows the "thumbnail couldn't be attached" warning (the provider reports `inlineImageAttached: false`).
 - [ ] **AI Draft — Azure OpenAI:** In Settings pick Azure OpenAI, paste a deployment endpoint URL (`https://<tenant>.openai.azure.com/openai/deployments/<deployment>/chat/completions?api-version=2024-10-21`) and the api-key → save. Confirm validation warnings appear for non-Azure hosts and for endpoints missing `?api-version=…`. Click ✨ Draft on an annotated frame → form pre-fills. Switch provider back to Off → `ai:endpoint` is cleared alongside provider+key.
 
 ### Notion (not in published listing, run before any re-list)

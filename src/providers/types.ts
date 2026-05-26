@@ -26,7 +26,18 @@ export interface TicketProvider {
     pat: string,
     boardId: string,
     ticket: TicketInput,
-  ): Promise<Result<{ id: string; url: string }>>
+  ): Promise<
+    Result<{
+      id: string
+      url: string
+      /**
+       * Present only when `ticket.inlineImage` was supplied. `false` means the
+       * inline-image upload failed and the ticket was created without it, so the
+       * UI can warn the user. Omitted/undefined when no inline image was requested.
+       */
+      inlineImageAttached?: boolean
+    }>
+  >
   uploadAttachment(
     pat: string,
     ticketRef: { id: string; boardId: string },

@@ -118,7 +118,11 @@ export const azureProvider: TicketProvider = {
     // re-escape ticket.description, which is already sanitized HTML. If the upload
     // fails we proceed with the plain description rather than failing createTicket.
     let descriptionBody = ticket.description ?? ''
+    // undefined when no inline image was requested; true/false to report whether
+    // the upload succeeded so the UI can warn on silent drop.
+    let inlineImageAttached: boolean | undefined
     if (ticket.inlineImage) {
+      inlineImageAttached = false
       // Wrap in a Blob: Figma's UI iframe runtime stringifies Uint8Array bodies
       // ("[object Uint8Array]") when passed directly to fetch().
       const blob = new Blob([new Uint8Array(ticket.inlineImage.bytes)], {
@@ -147,6 +151,7 @@ export const azureProvider: TicketProvider = {
         // event handler or javascript: URL can ever reach System.Description,
         // regardless of how the img tag was built.
         descriptionBody = sanitizeHtml(`${imgTag}\n${descriptionBody}`)
+        inlineImageAttached = true
       }
     }
     if (descriptionBody && descriptionBody.length > 0) {
@@ -215,7 +220,11 @@ export const azureProvider: TicketProvider = {
     return {
       ok: true,
       status: r.status,
-      value: { id: String(r.value.id), url: r.value._links.html.href },
+      value: {
+        id: String(r.value.id),
+        url: r.value._links.html.href,
+        inlineImageAttached,
+      },
     }
   },
 
