@@ -52,7 +52,7 @@ Disabling AI Draft (Settings → Provider: Off, or clearing the key) atomically 
 When a ticket is published, the frame screenshot (the same PNG exported for the thumbnail, capped at 5 MB) is uploaded to the user's own tracker and embedded inline in the ticket body:
 
 - **Azure DevOps:** uploaded via the work-item attachments API to the user's org, then referenced with an `<img>` tag in the work item's Description.
-- **Notion:** uploaded via Notion's File Upload API to the user's workspace, then added as an `image` block on the page.
+- **Notion** (opt-in provider, not in the published listing — see the architecture note in `README.md`): uploaded via Notion's File Upload API to the user's workspace, then added as an `image` block on the page. Requires re-adding `https://api.notion.com` to the manifest's allowed domains before use.
 
 The image goes only to the same tracker the ticket is created in — no third-party image host is ever contacted. The description HTML is sanitized by DOMPurify, which allows `<img>` with only `src` and `alt` attributes (no event handlers, no `script`/`style`/`iframe`); `javascript:` URLs in image sources are stripped. If the upload fails, the ticket is still created — the provider falls back to a plain description (Azure) or omits the image block (Notion), and the Figma deep link is always present regardless.
 
