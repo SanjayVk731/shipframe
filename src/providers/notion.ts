@@ -70,6 +70,41 @@ function discoverPropertyNames(db: {
   return { titleProp, typeProp, priorityProp, assigneeProp, labelsProp }
 }
 
+async function uploadFileForBlock(
+  pat: string,
+  bytes: Uint8Array,
+  filename: string,
+): Promise<{ ok: true; uploadId: string } | { ok: false }> {
+  const create = await tryRequest<{ id: string }>(() =>
+    fetch(`${API}/file_uploads`, {
+      method: 'POST',
+      headers: headers(pat),
+      body: JSON.stringify({ filename, content_type: 'image/png' }),
+    }),
+  )
+  if (!create.ok) return { ok: false }
+  const form = new FormData()
+  form.append(
+    'file',
+    new Blob([new Uint8Array(bytes)], { type: 'image/png' }),
+    filename,
+  )
+  const send = await tryRequest<unknown>(() =>
+    fetch(`${API}/file_uploads/${create.value.id}/send`, {
+      method: 'POST',
+      // NOTE: do NOT set Content-Type here — the browser sets the multipart
+      // boundary automatically. Only Authorization + Notion-Version.
+      headers: {
+        Authorization: `Bearer ${pat}`,
+        'Notion-Version': VERSION,
+      },
+      body: form,
+    }),
+  )
+  if (!send.ok) return { ok: false }
+  return { ok: true, uploadId: create.value.id }
+}
+
 export const notionProvider: TicketProvider = {
   id: 'notion',
   displayName: 'Notion',
@@ -213,6 +248,24 @@ export const notionProvider: TicketProvider = {
           rich_text: [{ type: 'text', text: { content: ticket.description } }],
         },
       })
+    }
+
+    if (ticket.inlineImage) {
+      const up = await uploadFileForBlock(
+        pat,
+        ticket.inlineImage.bytes,
+        ticket.inlineImage.filename,
+      )
+      if (up.ok) {
+        children.push({
+          object: 'block',
+          type: 'image',
+          image: {
+            type: 'file_upload',
+            file_upload: { id: up.uploadId },
+          },
+        })
+      }
     }
 
     const r = await tryRequest<{ id: string; url: string }>(() =>
