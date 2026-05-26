@@ -19,7 +19,14 @@ beforeEach(() => {
 })
 
 function renderView(
-  props: { thumbnailOversized?: boolean; workItemType?: string } = {},
+  props: {
+    thumbnailOversized?: boolean
+    workItemType?: string
+    hasDraftPin?: boolean
+    aiConfig?: import('../../src/storage/aiConfig').AiConfig
+    clearAiAnnotation?: (markdown?: string) => Promise<{ type: string; reason?: string }>
+    writeAiAnnotation?: (markdown: string) => Promise<{ type: string; reason?: string }>
+  } = {},
 ) {
   return render(
     <CreateView
@@ -33,6 +40,10 @@ function renderView(
       figmaDeepLink="https://figma.com/file/abc?node-id=1%3A2"
       getFieldSchema={getFieldSchema}
       onCreate={onCreate}
+      aiConfig={props.aiConfig}
+      hasDraftPin={props.hasDraftPin}
+      writeAiAnnotation={props.writeAiAnnotation}
+      clearAiAnnotation={props.clearAiAnnotation}
     />,
   )
 }
@@ -206,5 +217,55 @@ describe('CreateView', () => {
         /Acme\.RequiredCustomField/,
       ),
     )
+  })
+
+  it('shows "Publish" and "Discard draft pin" when hasDraftPin is true', async () => {
+    getFieldSchema.mockResolvedValue({ ok: true, status: 200, value: schema })
+    const writeAiAnnotation = vi.fn(async () => ({ type: 'ack' }))
+    const clearAiAnnotation = vi.fn(async () => ({ type: 'ack' }))
+    renderView({
+      hasDraftPin: true,
+      aiConfig: { provider: 'anthropic', key: 'sk-test' },
+      writeAiAnnotation,
+      clearAiAnnotation,
+    })
+    await waitFor(() => screen.getByLabelText(/title/i))
+    expect(screen.getByRole('button', { name: /^publish$/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /create ticket/i })).toBeNull()
+    expect(
+      screen.getByRole('button', { name: /discard draft pin/i }),
+    ).toBeInTheDocument()
+  })
+
+  it('shows "Create ticket" and no "Discard draft pin" when hasDraftPin is false', async () => {
+    getFieldSchema.mockResolvedValue({ ok: true, status: 200, value: schema })
+    renderView({
+      hasDraftPin: false,
+      aiConfig: { provider: 'anthropic', key: 'sk-test' },
+      writeAiAnnotation: vi.fn(async () => ({ type: 'ack' })),
+      clearAiAnnotation: vi.fn(async () => ({ type: 'ack' })),
+    })
+    await waitFor(() => screen.getByLabelText(/title/i))
+    expect(
+      screen.getByRole('button', { name: /create ticket/i }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^publish$/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /discard draft pin/i })).toBeNull()
+  })
+
+  it('calls clearAiAnnotation when "Discard draft pin" is clicked', async () => {
+    getFieldSchema.mockResolvedValue({ ok: true, status: 200, value: schema })
+    const clearAiAnnotation = vi.fn(async () => ({ type: 'ack' }))
+    renderView({
+      hasDraftPin: true,
+      aiConfig: { provider: 'anthropic', key: 'sk-test' },
+      writeAiAnnotation: vi.fn(async () => ({ type: 'ack' })),
+      clearAiAnnotation,
+    })
+    await waitFor(() => screen.getByLabelText(/title/i))
+    await userEvent.click(
+      screen.getByRole('button', { name: /discard draft pin/i }),
+    )
+    await waitFor(() => expect(clearAiAnnotation).toHaveBeenCalled())
   })
 })

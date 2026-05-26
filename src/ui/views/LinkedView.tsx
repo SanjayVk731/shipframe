@@ -50,7 +50,9 @@ export function LinkedView({
       )}
       {justCreated && pinFailed && (
         <div className="warning-banner" role="alert">
-          Pin couldn't be added to the frame. The ticket was created.
+          Couldn't add the linked-pin marker. Your draft pin is still on the
+          frame but doesn't have the ticket ID appended. The ticket itself was
+          created successfully.
         </div>
       )}
       <p>

@@ -51,6 +51,12 @@ interface Props {
    * if the sandbox couldn't read it.
    */
   getFrameContext?: () => Promise<FrameContext | undefined>
+  /** True when the selected frame already holds an unpublished AI draft pin. */
+  hasDraftPin?: boolean
+  /** Writes the AI-authored markdown to the frame as a draft pin. Returns the sandbox reply. */
+  writeAiAnnotation?: (markdown: string) => Promise<{ type: string; reason?: string }>
+  /** Removes the draft pin from the frame. */
+  clearAiAnnotation?: () => Promise<{ type: string; reason?: string }>
 }
 
 function reasonToMessage(reason: string): string {
@@ -115,6 +121,9 @@ export function CreateView({
   annotationsCount,
   textLayersCount,
   getFrameContext,
+  hasDraftPin = false,
+  writeAiAnnotation,
+  clearAiAnnotation,
 }: Props) {
   const [schema, setSchema] = useState<FieldSchema | null>(null)
   const [schemaError, setSchemaError] = useState<string | null>(null)
@@ -133,6 +142,7 @@ export function CreateView({
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [drafting, setDrafting] = useState(false)
   const [draftError, setDraftError] = useState<string | null>(null)
+  const [pinNote, setPinNote] = useState<string | null>(null)
 
   const sectionSet = sectionSetFor(workItemType)
 
@@ -161,6 +171,7 @@ export function CreateView({
     if (!aiConfig || !getFrameContext) return
     setDrafting(true)
     setDraftError(null)
+    setPinNote(null)
     try {
       const ctx = await getFrameContext()
       if (!ctx) {
@@ -175,7 +186,7 @@ export function CreateView({
       // anyway. We keep the dynamic import for clean separation: AI code only
       // runs in the iframe when this handler is actually invoked.
       const { draftFromContext } = await import('../ai/draft')
-      const drafted = await draftFromContext(ctx, aiConfig)
+      const drafted = await draftFromContext(ctx, aiConfig, thumbnail ?? new Uint8Array())
       if (!drafted.ok) {
         setDraftError(draftReasonToMessage(drafted.reason))
         return
@@ -188,6 +199,14 @@ export function CreateView({
       if (typeof v.actual === 'string') setActual(v.actual)
       if (typeof v.acceptanceCriteria === 'string') setAcceptanceCriteria(v.acceptanceCriteria)
       if (typeof v.outOfScope === 'string') setOutOfScope(v.outOfScope)
+      if (writeAiAnnotation && typeof v.pinMarkdown === 'string' && v.pinMarkdown.length > 0) {
+        const pinRes = await writeAiAnnotation(v.pinMarkdown)
+        if (pinRes.type === 'ack') {
+          setPinNote('Draft pin added to frame. Edit it in Figma if you like, then publish.')
+        } else {
+          setPinNote(`Couldn't add pin to frame${pinRes.reason ? `: ${pinRes.reason}` : ''}. You can still publish.`)
+        }
+      }
     } finally {
       setDrafting(false)
     }
@@ -247,11 +266,28 @@ export function CreateView({
             disabled={!canDraft}
             onClick={() => void onDraft()}
           >
-            {drafting ? '✨ Drafting…' : '✨ Draft with AI'}
+            {drafting ? '✨ Drafting…' : '✨ AI Draft → pin'}
           </Button>
+          {hasDraftPin && clearAiAnnotation && (
+            <Button
+              onClick={() => {
+                void (async () => {
+                  const res = await clearAiAnnotation()
+                  if (res.type === 'ack') setPinNote('Draft pin removed.')
+                })()
+              }}
+            >
+              Discard draft pin
+            </Button>
+          )}
           {draftError && (
             <p style={{ marginTop: 6, marginBottom: 0, opacity: 0.85, fontSize: 12 }}>
               {draftError}
+            </p>
+          )}
+          {pinNote && (
+            <p style={{ marginTop: 6, marginBottom: 0, opacity: 0.85, fontSize: 12 }}>
+              {pinNote}
             </p>
           )}
           {!draftError && !drafting && annotationsCount === 0 && textLayersCount === 0 && (
@@ -380,7 +416,7 @@ export function CreateView({
       )}
 
       <Button variant="primary" disabled={!canSubmit} onClick={submit}>
-        {submitting ? 'Creating…' : 'Create ticket'}
+        {submitting ? (hasDraftPin ? 'Publishing…' : 'Creating…') : (hasDraftPin ? 'Publish' : 'Create ticket')}
       </Button>
     </div>
   )

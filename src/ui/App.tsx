@@ -221,13 +221,22 @@ export function App() {
   const onCreate = useCallback(
     async (input: TicketInput): Promise<Result<unknown>> => {
       if (!fileConfig) return { ok: false, reason: 'unknown', status: 0 }
+      const hadDraftPin =
+        sandbox.selection.kind === 'single' && sandbox.selection.hasDraftPin
       const pat = pats[fileConfig.providerId]
       if (!pat) return { ok: false, reason: 'auth_failed', status: 401 }
       const provider = getProvider(fileConfig.providerId)
-      const created = await provider.createTicket(pat, fileConfig.boardId, input)
+      // When we have a usable thumbnail, embed it inline in the ticket body and
+      // skip the separate attachment upload to avoid double-attaching (Azure).
+      const inlined = !!(thumb && !thumbOversized)
+      const inputWithImage: TicketInput =
+        inlined && thumb
+          ? { ...input, inlineImage: { bytes: thumb, filename: 'thumbnail.png' } }
+          : input
+      const created = await provider.createTicket(pat, fileConfig.boardId, inputWithImage)
       if (!created.ok) return created
       let attachmentOk = true
-      if (sandbox.selection.kind === 'single' && thumb) {
+      if (!inlined && sandbox.selection.kind === 'single' && thumb) {
         const up = await provider.uploadAttachment(
           pat,
           { id: created.value.id, boardId: fileConfig.boardId },
@@ -259,13 +268,20 @@ export function App() {
         // — a failure only sets pinFailedId so LinkedView can warn the user.
         // `unsupported-node` (e.g. SECTION) is expected, not a failure — don't
         // warn for it.
-        const syncRes = await sandbox.request({
-          type: 'sync-annotation',
-          nodeId: sandbox.selection.nodeId,
-          providerId: fileConfig.providerId,
-          ticketId: link.id,
-          title: input.title,
-        })
+        const syncRes = hadDraftPin
+          ? await sandbox.request({
+              type: 'append-ticket-id-to-annotation',
+              nodeId: sandbox.selection.nodeId,
+              providerId: fileConfig.providerId,
+              ticketId: link.id,
+            })
+          : await sandbox.request({
+              type: 'sync-annotation',
+              nodeId: sandbox.selection.nodeId,
+              providerId: fileConfig.providerId,
+              ticketId: link.id,
+              title: input.title,
+            })
         const pinFailed =
           syncRes.type === 'error' && syncRes.reason !== 'unsupported-node'
         // Mark this link as "just created" BEFORE refreshing selection so the
@@ -279,7 +295,7 @@ export function App() {
       }
       return { ok: true, value: created.value, status: created.status }
     },
-    [fileConfig, pats, sandbox, thumb],
+    [fileConfig, pats, sandbox, thumb, thumbOversized],
   )
 
   const testAuth = useMemo(
@@ -396,6 +412,26 @@ export function App() {
           return undefined
         }
         return r.context
+      }}
+      hasDraftPin={sandbox.selection.kind === 'single' ? sandbox.selection.hasDraftPin : false}
+      writeAiAnnotation={async (markdown) => {
+        if (sandbox.selection.kind !== 'single') return { type: 'error', reason: 'no-selection' }
+        const r = await sandbox.request({
+          type: 'write-ai-annotation',
+          nodeId: sandbox.selection.nodeId,
+          markdown,
+        })
+        await sandbox.request({ type: 'get-selection-state' })
+        return { type: r.type, reason: r.type === 'error' ? r.reason : undefined }
+      }}
+      clearAiAnnotation={async () => {
+        if (sandbox.selection.kind !== 'single') return { type: 'error', reason: 'no-selection' }
+        const r = await sandbox.request({
+          type: 'clear-ai-annotation',
+          nodeId: sandbox.selection.nodeId,
+        })
+        await sandbox.request({ type: 'get-selection-state' })
+        return { type: r.type, reason: r.type === 'error' ? r.reason : undefined }
       }}
     />
   )
