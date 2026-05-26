@@ -5,6 +5,7 @@ import { ErrorBanner } from '../components/ErrorBanner'
 import { ThumbnailPreview } from '../components/ThumbnailPreview'
 import { ViewHeader } from '../components/ViewHeader'
 import { composeDescription } from '../composeDescription'
+import { reasonToMessage } from '../reasonMessage'
 import type {
   FieldSchema,
   ProviderId,
@@ -57,15 +58,6 @@ interface Props {
   writeAiAnnotation?: (markdown: string) => Promise<{ type: string; reason?: string }>
   /** Removes the draft pin from the frame. */
   clearAiAnnotation?: () => Promise<{ type: string; reason?: string }>
-}
-
-function reasonToMessage(reason: string): string {
-  if (reason === 'auth_failed') return "Your token isn't working — re-enter it."
-  if (reason === 'not_found') return 'Board not found — re-pick it in settings.'
-  if (reason === 'network_error') return 'Network error — check your connection.'
-  if (reason === 'rate_limited') return 'Rate limited — wait a moment and retry.'
-  if (reason === 'server_error') return 'Server error — try again shortly.'
-  return 'Something went wrong.'
 }
 
 function draftReasonToMessage(reason: string): string {

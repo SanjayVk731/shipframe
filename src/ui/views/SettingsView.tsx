@@ -4,6 +4,7 @@ import { ErrorBanner } from '../components/ErrorBanner'
 import { Input } from '../components/Input'
 import type { Board, FileConfig, ProviderId } from '../../shared/types'
 import type { Result } from '../../providers/types'
+import { reasonToMessage } from '../reasonMessage'
 
 interface Props {
   initialProviderId: ProviderId | null
@@ -73,14 +74,6 @@ function hasApiVersionParam(v: string): boolean {
 }
 
 type Phase = 'idle' | 'testing' | 'loaded' | 'error'
-
-function reasonToMessage(reason: string): string {
-  if (reason === 'auth_failed') return "Your token isn't working — re-enter it."
-  if (reason === 'network_error') return 'Network error — check your connection.'
-  if (reason === 'rate_limited') return 'Rate limited — wait a moment and retry.'
-  if (reason === 'server_error') return 'Server error — try again shortly.'
-  return 'Something went wrong.'
-}
 
 export function SettingsView({
   initialProviderId,
@@ -296,8 +289,9 @@ export function SettingsView({
         <legend>AI Draft (optional)</legend>
         <p style={{ marginTop: 0, marginBottom: 8, opacity: 0.75, fontSize: '12px' }}>
           Disabled by default. Sends frame name, native annotations, and visible
-          text layer copy to your chosen provider using your own API key.
-          No image content. No telemetry.
+          text layer copy to your chosen provider using your own API key. A
+          downscaled screenshot of the frame is also sent by default; turn off
+          "Include image" per draft to send text only. No telemetry.
         </p>
         <div className="field">
           <label htmlFor="ai-provider">Provider</label>

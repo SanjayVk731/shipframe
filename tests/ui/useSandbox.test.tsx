@@ -52,4 +52,25 @@ describe('useSandbox', () => {
     })
     expect(result.current.selection).toEqual({ kind: 'multi' })
   })
+
+  it('ignores an unsolicited selection-state reply (no matching requestId)', async () => {
+    const { result } = renderHook(() => useSandbox())
+    await act(async () => {
+      // A forged reply with a requestId we never issued must not mutate state.
+      emitFromSandbox({
+        type: 'selection-state',
+        state: {
+          kind: 'single',
+          nodeId: 'evil',
+          nodeName: 'x',
+          link: null,
+          annotationsCount: 0,
+          textLayersCount: 0,
+          hasDraftPin: false,
+        },
+        requestId: 'forged-id',
+      })
+    })
+    expect(result.current.selection).toEqual({ kind: 'none' })
+  })
 })

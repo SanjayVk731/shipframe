@@ -1,5 +1,5 @@
 import { marked } from 'marked'
-import DOMPurify from 'isomorphic-dompurify'
+import { sanitizeProse } from './sanitize'
 
 export interface StructuredDescriptionInput {
   main: string
@@ -29,53 +29,14 @@ export interface ComposedDescription {
 // - breaks: true → single newlines become <br>, matching textarea expectations.
 // - gfm: true   → GFM extras (autolinks, strikethrough) at low cost.
 // - The library no longer mangles emails or runs a built-in sanitizer.
-// We rely on DOMPurify (below) as the sole defense against XSS / image embeds.
+// We rely on sanitizeProse (src/ui/sanitize.ts) as the sole defense against XSS
+// and image embeds — it strips <img> from user-typed/AI-drafted prose.
 marked.setOptions({ gfm: true, breaks: true })
 
-// Sanitizer config — common to all callers. We allow <img> (with only src/alt)
-// so providers can embed uploaded frame screenshots into the description; the
-// upload URL points at the provider's own attachment store, not an arbitrary
-// external host. Event-handler attributes (onerror/onload/etc.) are not in
-// ALLOWED_ATTR, so DOMPurify strips them; script/style/iframe remain forbidden.
-// We allow only a conservative tag set; everything else is stripped.
-const ALLOWED_TAGS = [
-  'p',
-  'br',
-  'strong',
-  'em',
-  'b',
-  'i',
-  'code',
-  'pre',
-  'a',
-  'ul',
-  'ol',
-  'li',
-  'h2',
-  'h3',
-  'blockquote',
-  'img',
-]
-const ALLOWED_ATTR = ['href', 'src', 'alt']
-
-/**
- * The shared sanitizer used for all description HTML. Exported so providers that
- * assemble extra HTML (e.g. Azure prepending an `<img>` built from an upload URL)
- * can run the final string through the SAME conservative allow-list — a
- * defense-in-depth pass that strips event handlers / `javascript:` URLs even
- * though the inputs are already trusted.
- */
-export function sanitizeHtml(html: string): string {
-  return sanitize(html)
-}
-
-function sanitize(html: string): string {
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS,
-    ALLOWED_ATTR,
-    FORBID_TAGS: ['script', 'style', 'iframe'],
-  })
-}
+// All description HTML built from user input goes through the prose sanitizer,
+// which forbids <img> (see sanitize.ts). The trusted-image variant lives there
+// too and is used only by the Azure provider for uploaded screenshots.
+const sanitize = sanitizeProse
 
 /**
  * Render a multi-line user-input string as a block of markdown → HTML, then

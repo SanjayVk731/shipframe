@@ -256,15 +256,15 @@ describe('composeDescription — markdown rendering', () => {
     expect(description).not.toContain('onerror')
   })
 
-  it('renders markdown image syntax as a safe <img> (src/alt only, no handlers)', () => {
+  it('strips markdown image syntax from prose (no external image embeds)', () => {
     const { description } = composeDescription({
       main: 'see ![diagram](https://example.com/diagram.png) below',
     })
-    expect(description).toContain('<img')
-    expect(description).toContain('src="https://example.com/diagram.png"')
-    expect(description).toContain('alt="diagram"')
-    expect(description).not.toContain('onerror')
-    expect(description).not.toContain('onload')
+    expect(description).not.toContain('<img')
+    expect(description).not.toContain('https://example.com/diagram.png')
+    // surrounding prose survives
+    expect(description).toContain('see')
+    expect(description).toContain('below')
   })
 
   it('still preserves the prominent Figma link untouched', () => {
@@ -283,20 +283,20 @@ describe('composeDescription — markdown rendering', () => {
   })
 })
 
-describe('composeDescription <img> handling', () => {
-  it('preserves <img src="…" alt="…"/> in main', () => {
+describe('composeDescription <img> handling — prose images are stripped', () => {
+  it('strips raw <img> in main (prevents external tracking beacons)', () => {
     const r = composeDescription({
-      main: '<img src="https://example.com/x.png" alt="frame"/>',
+      main: '<img src="https://attacker.example/track.png" alt="frame"/>',
     })
-    expect(r.description).toContain('<img')
-    expect(r.description).toContain('src="https://example.com/x.png"')
-    expect(r.description).toContain('alt="frame"')
+    expect(r.description).not.toContain('<img')
+    expect(r.description).not.toContain('attacker.example')
   })
 
-  it('strips img event handlers', () => {
+  it('strips img event handlers along with the img', () => {
     const r = composeDescription({
       main: '<img src="https://example.com/x.png" alt="y" onerror="alert(1)"/>',
     })
+    expect(r.description).not.toContain('<img')
     expect(r.description).not.toContain('onerror')
     expect(r.description).not.toContain('alert(1)')
   })
@@ -310,12 +310,12 @@ describe('composeDescription <img> handling', () => {
     expect(r.description).not.toContain('<iframe')
   })
 
-  it('strips a javascript: URL from img src', () => {
+  it('strips a data: URI image from prose', () => {
     const r = composeDescription({
-      main: '<img src="javascript:alert(1)" alt="x"/>',
+      main: '<img src="data:image/png;base64,AAAA" alt="x"/>',
     })
-    expect(r.description).not.toContain('javascript:')
-    expect(r.description).not.toContain('alert(1)')
+    expect(r.description).not.toContain('<img')
+    expect(r.description).not.toContain('data:image')
   })
 })
 

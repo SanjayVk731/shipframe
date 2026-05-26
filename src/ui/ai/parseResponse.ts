@@ -1,4 +1,5 @@
 import { DRAFT_KEYS, PIN_MARKDOWN_MAX, type DraftOutput } from './types'
+import { truncateWithEllipsis } from '../../shared/text'
 
 export type ParseResult =
   | { ok: true; value: DraftOutput }
@@ -33,8 +34,7 @@ function coerce(value: unknown): string | undefined {
 }
 
 function truncatePin(s: string): string {
-  if (s.length <= PIN_MARKDOWN_MAX) return s
-  return s.slice(0, PIN_MARKDOWN_MAX - 1) + '…'
+  return truncateWithEllipsis(s, PIN_MARKDOWN_MAX)
 }
 
 export function parseDraftResponse(

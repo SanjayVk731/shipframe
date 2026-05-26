@@ -1,4 +1,5 @@
 import type { FrameContext } from '../shared/types'
+import { truncateWithEllipsis } from '../shared/text'
 
 export const FRAME_CONTEXT_LIMITS = {
   maxDepth: 5,
@@ -43,10 +44,10 @@ export async function collectFrameContext(
         return
       }
       const chars = node.characters ?? ''
-      const truncated =
-        chars.length > FRAME_CONTEXT_LIMITS.maxCharsPerNode
-          ? chars.slice(0, FRAME_CONTEXT_LIMITS.maxCharsPerNode - 1) + '…'
-          : chars
+      const truncated = truncateWithEllipsis(
+        chars,
+        FRAME_CONTEXT_LIMITS.maxCharsPerNode,
+      )
       textLayers.push(truncated)
       return
     }

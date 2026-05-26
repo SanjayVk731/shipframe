@@ -8,6 +8,7 @@ import { callOpenAI } from './openai'
 import { callAzureOpenAI } from './azureOpenAI'
 import { downscaleForVision } from './downscale'
 import { PIN_MARKDOWN_MAX, type DraftOutput } from './types'
+import { truncateWithEllipsis } from '../../shared/text'
 
 async function callOnce(
   ai: AiConfig,
@@ -37,9 +38,7 @@ function synthesizePin(value: DraftOutput): string | undefined {
   const firstLine = main.split('\n')[0] ?? ''
   const combined = [title, firstLine].filter((s) => s.length > 0).join('\n')
   if (combined.length === 0) return undefined
-  return combined.length <= PIN_MARKDOWN_MAX
-    ? combined
-    : combined.slice(0, PIN_MARKDOWN_MAX - 1) + '…'
+  return truncateWithEllipsis(combined, PIN_MARKDOWN_MAX)
 }
 
 export async function draftFromContext(

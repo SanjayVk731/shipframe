@@ -1,4 +1,5 @@
 import type { ProviderId } from '../shared/types'
+import { truncateWithEllipsis } from '../shared/text'
 
 interface AnnotationEntry {
   label?: string
@@ -28,24 +29,23 @@ export interface BuildLabelInput {
   title: string
 }
 
+// Last 8 hex chars of a Notion ticket id, dash-stripped and zero-padded.
+// Single source for the short-id used in both the full label and the suffix.
+function notionShortId(ticketId: string): string {
+  return ticketId.replace(/-/g, '').toLowerCase().slice(-8).padStart(8, '0')
+}
+
 export function buildLabel(input: BuildLabelInput): string {
   if (input.providerId === 'azure') {
     return `AZURE-${input.ticketId}`
   }
-  const cleaned = input.ticketId.replace(/-/g, '').toLowerCase()
-  const shortId = cleaned.slice(-8).padStart(8, '0')
-  const safeTitle =
-    input.title.length > MAX_TITLE_LEN
-      ? input.title.slice(0, MAX_TITLE_LEN - 1) + '…'
-      : input.title
-  return `Notion · ${safeTitle} · #${shortId}`
+  const safeTitle = truncateWithEllipsis(input.title, MAX_TITLE_LEN)
+  return `Notion · ${safeTitle} · #${notionShortId(input.ticketId)}`
 }
 
 function shortSuffix(providerId: ProviderId, ticketId: string): string {
   if (providerId === 'azure') return `AZURE-${ticketId}`
-  const cleaned = ticketId.replace(/-/g, '').toLowerCase()
-  const shortId = cleaned.slice(-8).padStart(8, '0')
-  return `Notion #${shortId}`
+  return `Notion #${notionShortId(ticketId)}`
 }
 
 export type SyncReason = 'node-missing' | 'api-unavailable' | 'unsupported-node'
@@ -117,6 +117,17 @@ export async function writeAiAnnotation(
   return { ok: true }
 }
 
+// Append "— <suffix>" to the existing pin body, but idempotently: if the body
+// already ends with this exact suffix (e.g. a re-publish or retry calls this
+// twice), return it unchanged rather than producing "…— AZURE-42\n— AZURE-42".
+export function appendSuffix(existingBody: string | undefined, suffix: string): string {
+  if (!existingBody || existingBody.length === 0) return suffix
+  if (existingBody === suffix || existingBody.endsWith(`— ${suffix}`)) {
+    return existingBody
+  }
+  return `${existingBody}\n— ${suffix}`
+}
+
 export async function appendTicketIdToAnnotation(
   nodeId: string,
   providerId: ProviderId,
@@ -129,10 +140,7 @@ export async function appendTicketIdToAnnotation(
   const manual = current.filter((a) => !isOursEntry(r.node, a))
   const ours = current.find((a) => isOursEntry(r.node, a))
   const existingBody = ours?.labelMarkdown ?? ours?.label
-  const nextMarkdown =
-    existingBody && existingBody.length > 0
-      ? `${existingBody}\n— ${suffix}`
-      : suffix
+  const nextMarkdown = appendSuffix(existingBody, suffix)
   r.node.annotations = [...manual, { labelMarkdown: nextMarkdown }]
   r.node.setPluginData(DRAFT_PIN_KEY, '')
   return { ok: true }
