@@ -307,4 +307,47 @@ describe('CreateView', () => {
     expect(toggle).toBeDisabled()
     expect(toggle.checked).toBe(false)
   })
+
+  it('ENABLES AI Draft from a screenshot alone (no text layers / annotations)', async () => {
+    getFieldSchema.mockResolvedValue({ ok: true, status: 200, value: schema })
+    // No annotationsCount/textLayersCount passed → both default to 0. A
+    // thumbnail is available and the toggle defaults on, so vision can draft.
+    renderView({
+      thumbnail: new Uint8Array([1, 2, 3]),
+      aiConfig: { provider: 'anthropic', key: 'sk-test' },
+    })
+    await waitFor(() => screen.getByLabelText(/title/i))
+    expect(
+      screen.getByRole('button', { name: /AI Draft → pin/i }),
+    ).not.toBeDisabled()
+    // The "add an annotation/text layer" hint should NOT show.
+    expect(screen.queryByText(/to use AI Draft/i)).toBeNull()
+  })
+
+  it('disables AI Draft when there is no text signal AND no usable screenshot', async () => {
+    getFieldSchema.mockResolvedValue({ ok: true, status: 200, value: schema })
+    renderView({
+      thumbnail: null,
+      aiConfig: { provider: 'anthropic', key: 'sk-test' },
+    })
+    await waitFor(() => screen.getByLabelText(/title/i))
+    expect(
+      screen.getByRole('button', { name: /AI Draft → pin/i }),
+    ).toBeDisabled()
+    expect(screen.getByText(/to use AI Draft/i)).toBeInTheDocument()
+  })
+
+  it('re-disables AI Draft if the only signal is the image and the toggle is turned off', async () => {
+    getFieldSchema.mockResolvedValue({ ok: true, status: 200, value: schema })
+    renderView({
+      thumbnail: new Uint8Array([1, 2, 3]),
+      aiConfig: { provider: 'anthropic', key: 'sk-test' },
+    })
+    await waitFor(() => screen.getByLabelText(/title/i))
+    const draftBtn = screen.getByRole('button', { name: /AI Draft → pin/i })
+    expect(draftBtn).not.toBeDisabled()
+    // Turn off "Include image" — now there's nothing to draft from.
+    await userEvent.click(screen.getByRole('checkbox', { name: /include image/i }))
+    expect(draftBtn).toBeDisabled()
+  })
 })

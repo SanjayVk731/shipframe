@@ -166,9 +166,13 @@ export function CreateView({
 
   const canSubmit = title.trim().length > 0 && schema !== null && !submitting
 
+  // Draftable when the AI has SOMETHING to work from: native annotations, text
+  // layers, or a screenshot we'll actually send (vision). The image alone is
+  // enough — image-only frames (e.g. carousels) were previously locked out.
+  const hasTextSignal = (annotationsCount ?? 0) > 0 || (textLayersCount ?? 0) > 0
   const canDraft =
     aiConfig !== undefined &&
-    ((annotationsCount ?? 0) > 0 || (textLayersCount ?? 0) > 0) &&
+    (hasTextSignal || willSendImage) &&
     !drafting &&
     !submitting
 
@@ -183,8 +187,14 @@ export function CreateView({
         setDraftError("Couldn't read the frame.")
         return
       }
-      if (ctx.annotations.length === 0 && ctx.textLayers.length === 0) {
-        setDraftError('Nothing to draft from — add a Figma annotation or text layer first.')
+      if (
+        ctx.annotations.length === 0 &&
+        ctx.textLayers.length === 0 &&
+        !willSendImage
+      ) {
+        setDraftError(
+          'Nothing to draft from — add a Figma annotation or text layer, or enable "Include image".',
+        )
         return
       }
       // Static import would be fine — the singlefile build inlines everything
@@ -322,9 +332,10 @@ export function CreateView({
               {pinNote}
             </p>
           )}
-          {!draftError && !drafting && annotationsCount === 0 && textLayersCount === 0 && (
+          {!draftError && !drafting && !hasTextSignal && !willSendImage && (
             <p style={{ marginTop: 6, marginBottom: 0, opacity: 0.6, fontSize: 12 }}>
-              Add a Figma annotation or text layer to enable AI Draft.
+              Add a Figma annotation or text layer, or enable "Include image", to
+              use AI Draft.
             </p>
           )}
         </div>
