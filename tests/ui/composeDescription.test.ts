@@ -256,12 +256,15 @@ describe('composeDescription — markdown rendering', () => {
     expect(description).not.toContain('onerror')
   })
 
-  it('drops markdown image syntax (no external image embeds in Azure)', () => {
+  it('renders markdown image syntax as a safe <img> (src/alt only, no handlers)', () => {
     const { description } = composeDescription({
       main: 'see ![diagram](https://example.com/diagram.png) below',
     })
-    expect(description).not.toContain('<img')
-    expect(description).not.toContain('diagram.png')
+    expect(description).toContain('<img')
+    expect(description).toContain('src="https://example.com/diagram.png"')
+    expect(description).toContain('alt="diagram"')
+    expect(description).not.toContain('onerror')
+    expect(description).not.toContain('onload')
   })
 
   it('still preserves the prominent Figma link untouched', () => {
@@ -277,6 +280,34 @@ describe('composeDescription — markdown rendering', () => {
       'href="https://figma.com/file/abc?node-id=1-2"',
     )
     expect(description).toContain('>Hero frame</a>')
+  })
+})
+
+describe('composeDescription <img> handling', () => {
+  it('preserves <img src="…" alt="…"/> in main', () => {
+    const r = composeDescription({
+      main: '<img src="https://example.com/x.png" alt="frame"/>',
+    })
+    expect(r.description).toContain('<img')
+    expect(r.description).toContain('src="https://example.com/x.png"')
+    expect(r.description).toContain('alt="frame"')
+  })
+
+  it('strips img event handlers', () => {
+    const r = composeDescription({
+      main: '<img src="https://example.com/x.png" alt="y" onerror="alert(1)"/>',
+    })
+    expect(r.description).not.toContain('onerror')
+    expect(r.description).not.toContain('alert(1)')
+  })
+
+  it('still forbids script/style/iframe', () => {
+    const r = composeDescription({
+      main: '<script>1</script><style>x</style><iframe></iframe>',
+    })
+    expect(r.description).not.toContain('<script')
+    expect(r.description).not.toContain('<style')
+    expect(r.description).not.toContain('<iframe')
   })
 })
 
