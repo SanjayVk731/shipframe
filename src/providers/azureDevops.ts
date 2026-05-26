@@ -110,11 +110,44 @@ export const azureProvider: TicketProvider = {
     // already handles escaping per section. The Figma link is attached as a
     // Hyperlink relation below, not embedded here, so description edits in
     // Azure don't clobber it.
-    if (ticket.description) {
+    //
+    // If an inline image was provided, upload it via Azure's attachment endpoint
+    // first, then prepend an <img> referencing the returned URL. The <img> tag is
+    // trusted (the URL comes from Azure's own attachment response) — we don't
+    // re-escape ticket.description, which is already sanitized HTML. If the upload
+    // fails we proceed with the plain description rather than failing createTicket.
+    let descriptionBody = ticket.description ?? ''
+    if (ticket.inlineImage) {
+      // Wrap in a Blob: Figma's UI iframe runtime stringifies Uint8Array bodies
+      // ("[object Uint8Array]") when passed directly to fetch().
+      const blob = new Blob([new Uint8Array(ticket.inlineImage.bytes)], {
+        type: 'image/png',
+      })
+      const up = await tryRequest<{ url: string }>(() =>
+        fetch(
+          `https://dev.azure.com/${org}/_apis/wit/attachments?fileName=${encodeURIComponent(
+            ticket.inlineImage!.filename,
+          )}&${API_VERSION}`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: authHeader(token),
+              'Content-Type': 'application/octet-stream',
+            },
+            body: blob,
+          },
+        ),
+      )
+      if (up.ok) {
+        const imgTag = `<img src="${up.value.url}" alt="Frame screenshot"/>`
+        descriptionBody = `${imgTag}\n${descriptionBody}`
+      }
+    }
+    if (descriptionBody && descriptionBody.length > 0) {
       ops.push({
         op: 'add',
         path: '/fields/System.Description',
-        value: ticket.description,
+        value: descriptionBody,
       })
     }
     if (ticket.priority)

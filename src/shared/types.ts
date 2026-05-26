@@ -51,6 +51,12 @@ export interface TicketInput {
    * Empty string when no repro steps were provided. Notion ignores this today.
    */
   reproStepsHtml?: string
+  /**
+   * Optional inline image embedded in the description body. The provider uploads
+   * this via its attachment endpoint and embeds the returned URL — Azure prepends
+   * an <img> to System.Description; Notion appends an image block.
+   */
+  inlineImage?: { bytes: Uint8Array; filename: string }
 }
 
 export interface FrameContext {
