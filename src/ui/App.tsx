@@ -5,7 +5,7 @@ import { CreateView } from './views/CreateView'
 import { LinkedView } from './views/LinkedView'
 import { ViewHeader } from './components/ViewHeader'
 import { getProvider } from '../providers/registry'
-import { getAiConfig, setAiConfig, clearAiConfig } from '../storage/aiConfig'
+import type { AiConfig } from '../storage/aiConfig'
 import type {
   FileConfig,
   ProviderId,
@@ -79,7 +79,8 @@ export function App() {
         notion: notionPat.type === 'pat' ? notionPat.pat : null,
         azure: azurePat.type === 'pat' ? azurePat.pat : null,
       })
-      const aiCfg = await getAiConfig()
+      const aiRes = await sandbox.request({ type: 'get-ai-config' })
+      const aiCfg = aiRes.type === 'ai-config' ? aiRes.config : null
       if (aiCfg) {
         setAiProvider(aiCfg.provider)
         setAiKey(aiCfg.key)
@@ -172,24 +173,26 @@ export function App() {
       setAiKey(next.key)
       setAiEndpoint(next.endpoint ?? '')
       if (next.provider === 'off' || next.key === '') {
-        await clearAiConfig()
+        await sandbox.request({ type: 'clear-ai-config' })
         return
       }
       if (next.provider === 'azure-openai') {
         if (!next.endpoint) {
-          await clearAiConfig()
+          await sandbox.request({ type: 'clear-ai-config' })
           return
         }
-        await setAiConfig({
+        const config: AiConfig = {
           provider: next.provider,
           key: next.key,
           endpoint: next.endpoint,
-        })
+        }
+        await sandbox.request({ type: 'set-ai-config', config })
         return
       }
-      await setAiConfig({ provider: next.provider, key: next.key })
+      const config: AiConfig = { provider: next.provider, key: next.key }
+      await sandbox.request({ type: 'set-ai-config', config })
     },
-    [],
+    [sandbox],
   )
 
   const onUnlink = useCallback(async () => {

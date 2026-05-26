@@ -4,6 +4,7 @@ import { classifySelection, exportThumbnail } from './selection'
 import { writeLink, clearLink } from './nodeLink'
 import { getFileConfig, setFileConfig } from '../storage/fileConfig'
 import { getPat, setPat } from '../storage/credentials'
+import { getAiConfig, setAiConfig, clearAiConfig } from '../storage/aiConfig'
 import {
   syncAnnotation,
   clearAnnotation,
@@ -117,6 +118,21 @@ figma.ui.onmessage = async (raw: unknown) => {
       }
       case 'set-pat': {
         await setPat(msg.providerId, msg.pat)
+        post({ type: 'ack', requestId: msg.requestId })
+        return
+      }
+      case 'get-ai-config': {
+        const config = (await getAiConfig()) ?? null
+        post({ type: 'ai-config', config, requestId: msg.requestId })
+        return
+      }
+      case 'set-ai-config': {
+        await setAiConfig(msg.config)
+        post({ type: 'ack', requestId: msg.requestId })
+        return
+      }
+      case 'clear-ai-config': {
+        await clearAiConfig()
         post({ type: 'ack', requestId: msg.requestId })
         return
       }

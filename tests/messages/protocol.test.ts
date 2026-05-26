@@ -38,6 +38,9 @@ describe('protocol guards', () => {
       | 'set-file-config'
       | 'get-pat'
       | 'set-pat'
+      | 'get-ai-config'
+      | 'set-ai-config'
+      | 'clear-ai-config'
       | 'focus-node'
       | 'open-external'
       | 'sync-annotation'
@@ -82,6 +85,18 @@ describe('isUiToSandbox new types', () => {
         requestId: 'r1',
       }),
     ).toBe(true)
+  })
+
+  it('accepts get-ai-config / set-ai-config / clear-ai-config', () => {
+    expect(isUiToSandbox({ type: 'get-ai-config', requestId: 'r1' })).toBe(true)
+    expect(
+      isUiToSandbox({
+        type: 'set-ai-config',
+        config: { provider: 'anthropic', key: 'k' },
+        requestId: 'r1',
+      }),
+    ).toBe(true)
+    expect(isUiToSandbox({ type: 'clear-ai-config', requestId: 'r1' })).toBe(true)
   })
 })
 
